@@ -538,6 +538,7 @@ public:
         
         isWaiting=true;
         xSemaphoreTake(I2SClocklessVirtualLedDriver_sem, portMAX_DELAY);
+        vTaskDelay(1/portTICK_PERIOD_MS);
  
     }
     
