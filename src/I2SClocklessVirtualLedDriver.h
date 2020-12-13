@@ -112,7 +112,7 @@ typedef union {
 static const char* TAG = "I2SClocklessVirtualLedDriver";
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
 static  void   IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint16_t *B);
-static  void  IRAM_ATTR loadAndTranspose(uint8_t * ledt,int led_per_strip,int num_stripst,uint16_t *buffer,int ledtodisp,uint8_t *mapg,uint8_t *mapr,uint8_t *mapb,uint8_t *mapw);
+static  void  IRAM_ATTR loadAndTranspose(uint8_t * ledt,uint16_t *buffer,int ledtodisp,uint8_t *mapg,uint8_t *mapr,uint8_t *mapb,uint8_t *mapw);
 
 enum  colorarrangment{
     ORDER_GRBW,
@@ -123,6 +123,7 @@ enum  colorarrangment{
     ORDER_BRG,
     ORDER_BGR,
 } ;
+
 
 enum displayMode {
     NO_WAIT,
@@ -289,7 +290,7 @@ public:
         DMABuffersTampon[0] = allocateDMABuffer((NUM_VIRT_PINS+1)*nb_components*8*3*2); //the buffers for the
         DMABuffersTampon[1] = allocateDMABuffer((NUM_VIRT_PINS+1)*nb_components*8*3*2);
         DMABuffersTampon[2] = allocateDMABuffer((NUM_VIRT_PINS+1)*nb_components*8*3*2);
-        DMABuffersTampon[3] = allocateDMABuffer((NUM_VIRT_PINS+1)*nb_components*8*3*2);
+        DMABuffersTampon[3] = allocateDMABuffer((NUM_VIRT_PINS+1)*nb_components*8*3*2*4);
         
         putdefaultlatch((uint16_t*)DMABuffersTampon[2]->buffer);
         putdefaultlatch((uint16_t*)DMABuffersTampon[3]->buffer);
@@ -516,7 +517,7 @@ public:
     
     void showPixels()
     {
-        printf("number:%d\n",NBIS2SERIALPINS);
+        //printf("number:%d\n",NBIS2SERIALPINS);
         if(leds==NULL)
         {
             ESP_LOGE(TAG,"no leds buffer defined");
@@ -530,7 +531,7 @@ public:
         DMABuffersTampon[2]->descriptor.qe.stqe_next=&(DMABuffersTampon[0]->descriptor);
         DMABuffersTampon[3]->descriptor.qe.stqe_next=0;
         dmaBufferActive=0;
-        loadAndTranspose(leds,num_led_per_strip,num_strips,(uint16_t*)DMABuffersTampon[0]->buffer,ledToDisplay,__green_map,__red_map,__blue_map,__white_map);
+        loadAndTranspose(leds,(uint16_t*)DMABuffersTampon[0]->buffer,ledToDisplay,__green_map,__red_map,__blue_map,__white_map);
         
         dmaBufferActive=1;
         i2sStart(DMABuffersTampon[2]);
@@ -544,7 +545,7 @@ public:
     
     
     
-    void initled(uint8_t *leds,int * Pinsq,int CLOCK_PIN,int LATCH_PIN,int num_strips,int num_led_per_strip,colorarrangment cArr)
+    void initled(uint8_t *leds,int * Pinsq,int CLOCK_PIN,int LATCH_PIN)
     {
 
   
@@ -599,8 +600,8 @@ public:
         setBrightness(255);
         dmaBufferCount=2;
         this->leds=leds;
-        this->num_led_per_strip=num_led_per_strip;
-        this->num_strips=num_strips;
+        this->num_led_per_strip=NUM_LEDS_PER_STRIP;
+        //this->num_strips=num_strips;
         this->dmaBufferCount=dmaBufferCount;
         setPins(Pinsq,CLOCK_PIN,LATCH_PIN);
         i2sInit();
@@ -680,26 +681,37 @@ public:
     void i2sStop()
     {
         
+        //delay(1);
         ets_delay_us(16);
        
-        xSemaphoreGive(I2SClocklessVirtualLedDriver_semDisp);
+        
         esp_intr_disable(_gI2SClocklessDriver_intr_handle);
         i2sReset();
         
         (&I2S0)->conf.tx_start = 0;
+        while((&I2S0)->conf.tx_start ==1)
+        {
+
+        }
         isDisplaying=false;
         /*
          We have finished to display the strips
          */
+        //ets_delay_us(1000);
+        if(isWaiting)
+        {
+           
+            xSemaphoreGive(I2SClocklessVirtualLedDriver_sem);
+          
+        }
         
-        
-        //xSemaphoreGive(I2SClocklessVirtualLedDriver_semDisp);
+        xSemaphoreGive(I2SClocklessVirtualLedDriver_semDisp);
         
     }
     
     void putdefaultlatch(uint16_t * buff)
     {
-        printf("dd%d\n",NBIS2SERIALPINS);
+        //printf("dd%d\n",NBIS2SERIALPINS);
         uint16_t mask1= 1<<NBIS2SERIALPINS;
         for (int i=0;i<24*nb_components;i++)
         {
@@ -816,8 +828,8 @@ static  void IRAM_ATTR  _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
             cont->ledToDisplay++;
             if(cont->ledToDisplay<cont->num_led_per_strip)
             {
-               loadAndTranspose(cont->leds,cont->num_led_per_strip,cont->num_strips,(uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer,cont->ledToDisplay,cont->__green_map,cont->__red_map,cont->__blue_map,cont->__white_map);
-                if(cont->ledToDisplay==cont->num_led_per_strip-3)  //here it's not -1 because it takes time top have the change into account and it reread the buufer
+               loadAndTranspose(cont->leds,(uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer,cont->ledToDisplay,cont->__green_map,cont->__red_map,cont->__blue_map,cont->__white_map);
+                if(cont->ledToDisplay==(cont->num_led_per_strip-3))  //here it's not -1 because it takes time top have the change into account and it reread the buufer
                 {
                     cont->DMABuffersTampon[cont->dmaBufferActive]->descriptor.qe.stqe_next=&(cont->DMABuffersTampon[3]->descriptor);
                 }
@@ -845,12 +857,7 @@ static  void IRAM_ATTR  _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 //            xSemaphoreGiveFromISR(((I2SClocklessVirtualLedDriver *)arg)->I2SClocklessVirtualLedDriver_semDisp, &HPTaskAwoken);
 //            if(HPTaskAwoken == pdTRUE) portYIELD_FROM_ISR();
         ((I2SClocklessVirtualLedDriver *)arg)->i2sStop();
-        if(cont->isWaiting)
-        {
-            portBASE_TYPE HPTaskAwoken = 0;
-            xSemaphoreGiveFromISR(cont->I2SClocklessVirtualLedDriver_sem, &HPTaskAwoken);
-            if(HPTaskAwoken == pdTRUE) portYIELD_FROM_ISR();
-        }
+
         
     }
     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG( 0 )) & 0xffffffc0) | 0x3f);
@@ -915,7 +922,7 @@ static  void   IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B) {
     
 }
 
-static  void  IRAM_ATTR loadAndTranspose(uint8_t * ledt,int led_per_strip,int num_stripst,uint16_t *buff,int ledtodisp,uint8_t *mapg,uint8_t *mapr,uint8_t *mapb,uint8_t *mapw)
+static  void  IRAM_ATTR loadAndTranspose(uint8_t * ledt,uint16_t *buff,int ledtodisp,uint8_t *mapg,uint8_t *mapr,uint8_t *mapb,uint8_t *mapw)
 {
     Lines firstPixel[nb_components];
     
