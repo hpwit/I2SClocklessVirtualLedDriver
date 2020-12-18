@@ -141,8 +141,8 @@ public:
         ledspointerarray = ledspointerarraya;
     }
 
-    uint8_t &operator[](uint16_t);
-    uint8_t &AllLeds::operator[](uint16_t i)
+    //uint8_t &operator[](uint16_t);
+    uint8_t &operator[](uint16_t i)
     {
         uint8_t strip = i / (NUM_LEDS_PER_STRIP * nb_components);
         uint8_t *offset = ledspointerarray[(strip % 2 == 0) ? strip + 1 : strip - 1] + (i % (NUM_LEDS_PER_STRIP * nb_components));
@@ -186,8 +186,8 @@ public:
         ledspointerarray = ledspointerarraya;
     }
 
-    pixel &operator[](uint16_t);
-    pixel &AllLedsObjects::operator[](uint16_t i)
+   // pixel &operator[](uint16_t);
+    pixel &operator[](uint16_t i)
     {
 
         uint8_t strip = i / (NUM_LEDS_PER_STRIP);
