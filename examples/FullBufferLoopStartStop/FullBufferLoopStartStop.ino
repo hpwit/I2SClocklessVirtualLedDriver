@@ -18,7 +18,7 @@ I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-    driver.initled((uint8_t*)leds1,pins,CLOCK_PIN,LATCH_PIN);
+    driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
     driver.setBrightness(10);
     driver.showPixelsFromBuffer(LOOP); //start displaying in  loop what ever is in the DMA buffer
     

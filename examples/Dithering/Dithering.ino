@@ -24,7 +24,7 @@ I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-    driver.initled((uint8_t*)leds1,pins,CLOCK_PIN,LATCH_PIN);
+    driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
     CRGB color=CRGB(10,0,0);
     
 //led 0 equivalent of 10/6=1,67
