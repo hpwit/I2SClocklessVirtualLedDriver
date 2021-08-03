@@ -25,6 +25,8 @@
 
 #define I2S_DEVICE 0
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
 #define NUM_VIRT_PINS 7
 #ifndef NBIS2SERIALPINS
 #define NBIS2SERIALPINS 1
@@ -315,7 +317,7 @@ public:
 
     I2SClocklessVirtualLedDriver(){};
 
-    void setPins(int *Pins, int CLOCK_PIN, int LATCH_PIN)
+    void setPins(int *Pins, int clock_pin, int latch_pin)
     {
         for (int i = 0; i < NBIS2SERIALPINS; i++)
         {
@@ -323,11 +325,11 @@ public:
             gpio_set_direction((gpio_num_t)Pins[i], (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
             gpio_matrix_out(Pins[i], deviceBaseIndex[I2S_DEVICE] + i + 8, false, false);
         }
-        PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[LATCH_PIN], PIN_FUNC_GPIO);
-        gpio_set_direction((gpio_num_t)LATCH_PIN, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
-        gpio_matrix_out(LATCH_PIN, deviceBaseIndex[I2S_DEVICE] + NBIS2SERIALPINS + 8, false, false);
-        gpio_set_direction((gpio_num_t)CLOCK_PIN, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
-        gpio_matrix_out(CLOCK_PIN, deviceClockIndex[I2S_DEVICE], false, false);
+        PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[latch_pin], PIN_FUNC_GPIO);
+        gpio_set_direction((gpio_num_t)latch_pin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
+        gpio_matrix_out(latch_pin, deviceBaseIndex[I2S_DEVICE] + NBIS2SERIALPINS + 8, false, false);
+        gpio_set_direction((gpio_num_t)clock_pin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
+        gpio_matrix_out(clock_pin, deviceClockIndex[I2S_DEVICE], false, false);
     }
 
     void setColorOrderPerStrip(int stripnumber, colorarrangment arr)
@@ -681,9 +683,9 @@ public:
         setPixelinBuffer(pos, red, green, blue, 0);
     }
 
-    void initled(int *Pinsq, int CLOCK_PIN, int LATCH_PIN)
+    void initled(int *Pinsq, int clock_pin, int latch_pin)
     {
-        initled(NULL, Pinsq, CLOCK_PIN, LATCH_PIN);
+        initled(NULL, Pinsq, clock_pin, latch_pin);
     }
     void waitSync()
     {
@@ -867,7 +869,7 @@ public:
 
     //list of the leds strips
 
-    void initled(uint8_t *leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)
+    void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
         driverInit = false;
 #ifdef MULTIPLE_LEDSBUFFER
@@ -967,7 +969,7 @@ public:
 #endif
         //this->num_strips=num_strips;
         this->dmaBufferCount = dmaBufferCount;
-        setPins(Pinsq, CLOCK_PIN, LATCH_PIN);
+        setPins(Pinsq, clock_pin, latch_pin);
         i2sInit();
         initDMABuffers();
         driverInit = true;
