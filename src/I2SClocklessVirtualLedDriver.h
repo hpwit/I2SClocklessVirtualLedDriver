@@ -724,9 +724,25 @@ public:
         uint8_t *offset = ledsstripsorigin[(strip % 2 == 0) ? strip + 1 : strip - 1] + (pos % NUM_LEDS_PER_STRIP) * nb_components;
 
 #endif
-        *(offset) = red;
-        *(++offset) = green;
-        *(++offset) = blue;
+        if (nb_components == 3)
+        {
+            uint8_t *offset = leds + (pos << 1) + pos;
+            *(offset) = red;
+            *(++offset) = green;
+            *(++offset) = blue;
+        }
+        else
+        {
+            /*
+                Code to transform RBG into RGBW thanks to @Jonathanese https://github.com/Jonathanese/NodeMCUPoleDriver/blob/master/LED_Framework.cpp
+            */
+            uint8_t W = MIN(red, green);
+            W = MIN(W, blue);
+            red = red - W;
+            green = green - W;
+            blue = blue - W;
+            setPixel(pos, red, green, blue, W);
+        }
     }
 
 #ifdef MULTIPLE_LEDSBUFFER
@@ -921,7 +937,7 @@ public:
         _defaultOffsetDisplay = _offsetDisplay;
         this->leds = leds;
 #if HARDWARESPRITES == 1
-        Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
+       // Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
         target = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
 #endif
 

@@ -1,17 +1,21 @@
-#include "I2SClocklessLedDriver.h"
-
-#define ledsperstrip 256
-#define numstrips 16
+#define NBIS2SERIALPINS 4 //the number of virtual pins here mavimum 32 strips
+#define STATIC_COLOR_RGBW 1 //set the strip color
+#define NUM_LEDS_PER_STRIP 50
+#define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
+#define CLOCK_PIN 16
+#define LATCH_PIN 26
+#define NUM_STRIPS 32
 //here we have 4 colors per pixel
-uint8_t leds[numstrips*ledsperstrip*4];
+#include "I2SClocklessVirtualLedDriver.h"
+uint8_t leds[NUM_STRIPS*NUM_LEDS_PER_STRIP*4];
 
 int pins[16]={0,2,4,5,12,13,14,15,16,18,19,21,22,23,25,26};
 
-I2SClocklessLedDriver driver;
+I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-    driver.initled(leds,pins,numstrips,ledsperstrip,ORDER_GRBW);
+   driver.initled((uint8_t*)leds1,pins,CLOCK_PIN,LATCH_PIN);
     driver.setBrightness(10);
     
 }
@@ -20,13 +24,13 @@ int off=0;
 long time1,time2,time3;
 void loop() {
     time1=ESP.getCycleCount();
-    for(int j=0;j<numstrips;j++)
+    for(int j=0;j<NUM_STRIPS;j++)
     {
         
-        for(int i=0;i<ledsperstrip;i++)
+        for(int i=0;i<NUM_LEDS_PER_STRIP;i++)
         {
             
-            driver.setPixel((i+off)%ledsperstrip+ledsperstrip*j,255-i,i,((128-i)+255)%255,i/25);
+            driver.setPixel((i+off)%NUM_LEDS_PER_STRIP+NUM_LEDS_PER_STRIP*j,255-i,i,((128-i)+255)%255,i/25);
             
         }
     }

@@ -1,7 +1,7 @@
-# I2SClocklessLedDriver for esp32
+# I2SClocklessVirtualLedDriver for esp32
 ## Introduction
 ### What kind of led do you want to drive
-This library is a new take on driving ws2812 leds with I2S on an esp32. It allows to drive up to 16 strips leds in parallel of  
+This library is a new take on driving ws2812 leds with I2S on an esp32. It allows to drive up to 120 strips !!! leds in parallel of  
 * RGB:
     * WS2812,
     * WS2813,
@@ -9,7 +9,8 @@ This library is a new take on driving ws2812 leds with I2S on an esp32. It allow
 * RGBW 
     * SK6812. 
 
-If you are using RGB led type then this library is fully compatible with fastLED library (in which you cand find my previous version of  my I2S driver).
+If you are using RGB led type then this library is fully compatible with fastLED library objects
+
 
 ### Why have I rewritten the library ?
 I have rewritten the library out of the FastLED framework  to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
@@ -19,6 +20,18 @@ But the main reason is the way I wanted to drive the leds. Indeed the library gi
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
 
 ## Let's start
+### How can 120 strips can de driven in parallel with an esp32 !!!
+The esp32 has 24 pins that can act as outputs pins. This is far away from 120 pins ...
+The main idea is to drive 8 strips out of one single pin of the ESP32. and you can do this for 15 esp32 pins which gives you 8x15=120 strips !!!
+
+To do this feat you will need to get some ICs
+* 74HC245 : this is a bus used as a level shifter (you will need only one of them for LATCH and CLOCK)
+* 74HC595 : this is an 8 bit shift register (you will need one 74HC595 for each Virtual pin)
+
+You'll find the schematics within the 'extra' folder of this library.
+
+I personally use it to drive my panel 16x369 leds but still have space for an I2C Nintenda controller and SD card reader.
+
 ### Array of strips
 In most leds driver librairies you declare each strip attached to one pin, one line at a time.
 
@@ -67,9 +80,29 @@ We are declaring that my `leds` array represent 4 strips of `NUM_LED_PER_STRIPS`
 ### First let's declare a new driver
 
 ```C
-#include "I2SClocklessLedDriver.h"
 
-I2SClocklessLedDriver driver;
+#define NBIS2SERIALPINS 2  //the number of virtual pins
+
+#define STATIC_COLOR_GRB 1 //set the strip color
+/* the other values
+STATIC_COLOR_RGB
+STATIC_COLOR_RBG
+STATIC_COLOR_GBR
+STATIC_COLOR_BGR
+STATIC_COLOR_BRG
+*/
+
+#define NUM_LEDS_PER_STRIP 256
+
+#define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
+
+#define CLOCK_PIN 16
+
+#define LATCH_PIN 4
+
+#include "I2SClocklessVirtualLedDriver.h"
+
+I2SClocklessVirtualLedDriver driver;
 ```
 
 ### How to define my leds array ?
@@ -90,57 +123,69 @@ uint8_t leds[4*NUM_LEDS];
 ```
 
 ### Driver functions
-#### `initled(uint8_t *leds,int * Pins,int num_strips,int num_led_per_strip,colorarrangment cArr)`:
+#### `void initled(uint8_t *leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`:
 
  This function initialize the strips.
 * `*leds`: a pointer to the leds array
 * `*Pins`: a pointer to the pins array
-* `num_strips`: the number of parallel strips
-* `num_led_per_strip`: the number of leds per strip (or the number of leds in the longuest strip)
-* `cArr`: The led ordering
-    * `ORDER_GRBW`: For the RGBW strips
-    * `ORDER_RGB`
-    * `ORDER_RBG`
-    * `ORDER_GRB` : The most often used
-    * `ORDER_GBR`
-    * `ORDER_BRG`
-    * `ORDER_BGR`
- 
- example 4: declaring 12 strips of 256 leds in GRB 
- ```C
- #define NUM_STRIPS 12
- #define NUM_LEDS_PER_STRIP 256
- 
- #include "I2SClocklessLedDriver.h"
+* `CLOCK_PIN`: pin for the clock output needs to be >=16
+* `LATCH_PIN`: pin for the latch ouput
 
- I2SClocklessLedDriver driver;
  
- uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; //equivalent of CRGB leds[NUM_LEDS_PER_STRIPS*NUM_LEDS_PER_STRIPS]
- int pins[NUM_STRIPS] ={0,2,4,5,12,13,14,15,16,29,25,26};
- driver.initled((uint8_t*)leds,pins,NUM_STRIPS,NUM_LED_PER_STRIP,ORDER_GRB);
+ example 4: declaring 16 strips of 256 leds in GRB 
+ ```C
+ 
+#define NBIS2SERIALPINS 2  //the number of virtual pins
+#define STATIC_COLOR_GRB 1 //set the strip color
+#define NUM_LEDS_PER_STRIP 256
+#define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
+#define CLOCK_PIN 16
+#define LATCH_PIN 4
+#define NUM_STRIPS (NBIS2SERIALPINS*8)
+ 
+ #include "I2SClocklessVirtualLedDriver.h"
+
+ I2SClocklessVirtualLedDriver driver;
+ 
+ uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; //equivalent of CRGB leds[NUM_LEDS_PER_STRIPS*NUM_STRIPS]
+ int pins[NBIS2SERIALPINS] ={0,2};
+ driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
  ```
  
- example 5: declaring 12 strips of 256 leds in RGBW
+ example 5: declaring 30 strips of 256 leds in RGBW
  ```C
- #define NUM_STRIPS 12
- #define NUM_LED_PER_STRIP 256
+ #define NBIS2SERIALPINS 4  //the number of virtual pins
+#define STATIC_COLOR_GRBW 1 //set the strip color to GRBW
+#define NUM_LEDS_PER_STRIP 256
+#define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
+#define CLOCK_PIN 16
+#define LATCH_PIN 4
+#define NUM_STRIPS 30
  
- #include "I2SClocklessLedDriver.h"
+ #include "I2SClocklessVirtualLedDriver.h"
 
- I2SClocklessLedDriver driver;
+ I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[4*NUM_STRIPS*NUM_LED_PER_STRIP]; 
- int pins[NUM_STRIPS] ={0,2,4,5,12,13,14,15,16,29,25,26};
- driver.initled((uint8_t*)leds,pins,NUM_STRIPS,NUM_LED_PER_STRIP,ORDER_GRBW);
+ uint8_t leds[4*NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+ int pins[NBIS2SERIALPINS] ={0,2,12,13};
+ driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
  ```
  #### `setBrightness(int brightness)`:
  
  This function sets the default brightness for 0->255
  
- #### `setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)`:
+#### `setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)`:
  Set the color of a pixel 
- 
+ NB1: if you are using a RGBW led, this function will do and RGB->RGBW transformation with the following algotithm thanks to  @Jonathanese 
+```C
+W = min(R, G, B);
+R = R - W; 
+G = G - W;
+B = B - W;
+```
  NB: if you are familiar with FastLED it would be `leds[pos]=CRGB(red,green,blue)` as you will see in the examples
+ 
+ 
  
  #### `setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue,uint8_t white)`:
  Set the color of a pixel for RGBW strips
@@ -148,13 +193,87 @@ uint8_t leds[4*NUM_LEDS];
  #### `showPixels()`:
  
  This function displays the pixels.
+
+ #### `showPixels(uint8_t *leds)`:
+This function allow set 'on the go' the pointer to the leds. This will help if you are using two buffers for your animation. 
+It can also be used to ease dithering see example `Dithering` (I need to work on a hardware implementation btw)
+```C
+#define NBIS2SERIALPINS 4  //the number of virtual pins
+#define STATIC_COLOR_GRB 1 //set the strip color
+#define NUM_LEDS_PER_STRIP 256
+#define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
+#define CLOCK_PIN 16
+#define LATCH_PIN 4
+#define NUM_STRIPS 30
  
+ #include "I2SClocklessVirtualLedDriver.h"
+
+ I2SClocklessVirtualLedDriver driver;
+ 
+ uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP];  
+ uint8_t leds2[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+ int pins[NBIS2SERIALPINS] ={0,2,12,13};
+ driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
+
+//displyaing the leds in leds1
+driver.showPixels();
+
+//displaying the leds in leds2
+driver.showPixels(leds2);
+
+### 'HARDWARE SCROLLING'
+Old term for a nice trick. The idea is to do a remapping of the leds within the driver directly so that the leds are displayed in another order. Pixels are pushed one at a time, and the normal way to do it is by going led 0,1,2,3 ....,N
+Let's say that I want to 'scroll' by 5 pixels all the leds. Normally you would move leds 4->N-1 into 0,N-5 and then copy led 0=>led N-4 act. and then do the fastled.show().
+The way I do it is to push within the driver led 4,5,6,7, ...., N-1,0,1,2,3 by calculating each time which pixels needs to be displayed using a simple algorithm about something along this `lednumber=> (lednumber+scroll)%N` (then a bit more complicated to take into account snake arrangement or not ,...)
+
+#### `OffsetDisplay` object:
+```C
+struct OffsetDisplay
+{
+    int offsetx;
+    int offsety;
+    int panel_height;
+    int panel_width;
+};
+```
+At the initiation of the leds a default Offdisplay is created with certain values. You can get this default object with `getDefaultOffset();`.
+
+In the example `snakewithhardwarescroll.ino` each strip is treated as 'individual' and each snake will go around a single strip
+
+#### Defining a panel
+To be able to 'hardware scroll' in all directions you need to define how you panel is setup.
+for instance if you have a panel 100 leds wide 20 leds height `panel_height=20` and `panel_witdh=100`.
+If you are using mutilple strips you have two parameters 
+NB: these parameters need to be put before `#include "I2SClocklessLedDriver.h"` :
+
+`SNAKEPATTERN`
+* `#define SNAKEPATTERN 0` if your strip are not in snake pattern.
+* `#define SNAKEPATTERN 1` if your strip are arange in snake pattern **this is the default you do not need to put it in your program**
+
+`ALTERNATEPATTERN`
+* `#define ALTERNATEPATTERN 0` if the all the strip start on the same side
+* `#define ALTERNATEPATTERN 1` if the all the strip start on alternate side  **this is the default you do not need to put it in your program**
+
+
+#### `showPixels(OffDisplay offset)`:
+This function can help you scroll your leds without doing a mem copy.
+
+#### `showPixels(uint8_t * leds,OffDisplay offset)`:
+Same function as before, where you can set the led buffer you want to display.
+
+#### Is it reallly needed ?
+Maybe not but fun (humm maybe not that fun lol) to make but great results.
+
  #### Examples:
  
 * `gettingstarted.ino`: an example to use 16 parallel strips of 256 leds 
 * `gettingstartedFastLED.ino`: an example to use 16 parallel strips of 256 leds using FastLED objects 
 * `gettingstartedRGBW.ino`: an example to use 16 parallel strips of 256 leds of RGBW leds
+* `Dithering`; how to use the showPixels(uint8_t *leds) to easly do dithering (just an example)
+* `snakewithhardwarescroll.ino`: an example of use of the showPixel(OffsetDisplay offset) to do the snake
+* `panelhardwarescroll.ino`: an example of hardware scrolling x and y direction
 
+ 
 
 ## Artifacts, DMA, second core, transposition, ...
 
