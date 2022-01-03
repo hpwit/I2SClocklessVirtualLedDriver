@@ -1404,7 +1404,7 @@ static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
 {
     Lines firstPixel[nb_components];
-    uint8_t _g, _r, _b;
+    uint8_t _g, _r, _b,g;
     uint32_t offp, offi, offsetled;
     uint32_t i2s_off2=I2S_OFF2;
     uint32_t i2s_off=I2S_OFF;
