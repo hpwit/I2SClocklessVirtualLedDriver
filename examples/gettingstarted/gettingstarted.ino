@@ -1,6 +1,6 @@
 #define NBIS2SERIALPINS 4 //the number of virtual pins here mavimum 32 strips
 #define STATIC_COLOR_GRB 1 //set the strip color
-#define NUM_LEDS_PER_STRIP 50
+#define NUM_LEDS_PER_STRIP 60 
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
 #define LATCH_PIN 26
@@ -32,6 +32,10 @@ void loop() {
             
             driver.setPixel((i+off)%NUM_LEDS_PER_STRIP+NUM_LEDS_PER_STRIP*j,(NUM_LEDS_PER_STRIP-i)*255/NUM_LEDS_PER_STRIP,i*255/NUM_LEDS_PER_STRIP,(((128-i)+255)%255)*255/NUM_LEDS_PER_STRIP);
             
+        }
+        for(int i=0;i<(j+1);i++)
+        {
+         // driver.setPixel(i+j*NUM_LEDS_PER_STRIP,255,0,0);
         }
     }
     time2=ESP.getCycleCount();
