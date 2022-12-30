@@ -220,8 +220,34 @@ driver.showPixels();
 
 //displaying the leds in leds2
 driver.showPixels(leds2);
+```
+
+### And if you do not wanna wait while displaying ? 
+`void showPixels(displayMode dispmode)` and `void showPixels(displayMode dispmode,uint8_t *newleds)` are two functions that can allow you to display the pixels without having to wait
+
+```C
+showPixels(NO_WAIT); //it will start displaying the leds but giving you back the process 
+ showPixels(NO_WAIT,newleds); //same here
+
+ //i.e if you do this
+//A
+showPixels(NO_WAIT); 
+delay(20);
+//B
+ //between A and B it will have passed either 20 or the time of the showPixels (if it's longer than 20ms)
+```
+
+if you do this
+```C
+showPixels(NO_WAIT);
+showPixels(NO_WAIT);
+```
+then the ssocn showPixels will wait for the first one to end before starting the second one.
+
 
 ### 'HARDWARE SCROLLING'
+to enable HARDWARE SCORLLING
+#define  ENABLE_HARDWARE_SCROLL 
 Old term for a nice trick. The idea is to do a remapping of the leds within the driver directly so that the leds are displayed in another order. Pixels are pushed one at a time, and the normal way to do it is by going led 0,1,2,3 ....,N
 Let's say that I want to 'scroll' by 5 pixels all the leds. Normally you would move leds 4->N-1 into 0,N-5 and then copy led 0=>led N-4 act. and then do the fastled.show().
 The way I do it is to push within the driver led 4,5,6,7, ...., N-1,0,1,2,3 by calculating each time which pixels needs to be displayed using a simple algorithm about something along this `lednumber=> (lednumber+scroll)%N` (then a bit more complicated to take into account snake arrangement or not ,...)

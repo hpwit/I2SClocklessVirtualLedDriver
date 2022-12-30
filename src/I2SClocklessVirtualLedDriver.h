@@ -28,9 +28,11 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 #define NUM_VIRT_PINS 7
+
 #ifndef NBIS2SERIALPINS
 #define NBIS2SERIALPINS 1
 #endif
+
 #ifndef NUM_LEDS_PER_STRIP
 #define NUM_LEDS_PER_STRIP 256
 #endif
@@ -47,8 +49,15 @@
 #define ALTERNATEPATTERN 1
 #endif
 
-#ifndef NOYSCROLL
-#define NOYSCROLL 0
+
+
+#ifdef YVESPANEL
+#define  ENABLE_HARDWARE_SCROLL 
+#endif
+
+
+#ifndef NO_OFFSET
+#define NO_OFFSET 1
 #endif
 
 //to define coleor different per strip
@@ -326,6 +335,7 @@ public:
     volatile bool isDisplaying = false;
     volatile bool isWaiting = true;
     volatile bool framesync = false;
+    volatile bool wasWaitingtofinish = false;
     volatile int counti;
 
     I2SClocklessVirtualLedDriver(){};
@@ -820,17 +830,58 @@ public:
         */
     void showPixels(uint8_t *newleds)
     {
-        uint8_t *tmp_leds;
-        tmp_leds = leds;
+        //uint8_t *tmp_leds;
+       // tmp_leds = leds;
         leds = newleds;
         showPixels();
-        leds = tmp_leds;
+        //leds = tmp_leds;
     }
 
-    void showPixels()
+        void showPixels(displayMode dispmode,uint8_t *newleds)
+    {
+        //printf("je tente display\n");
+        
+         if(isDisplaying == true and __displayMode==NO_WAIT)
+         {
+            //printf("dejà en cours on attend\n");
+            //long t1=ESP.getCycleCount();
+            wasWaitingtofinish = true;
+            if(I2SClocklessVirtualLedDriver_semDisp==NULL)
+                I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
+                const TickType_t xDelay = 50 ; //to avoid full blocking
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+            //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
+         }
+        
+        //uint8_t *tmp_leds;
+        //tmp_leds = leds;
+        leds = newleds;
+        showPixels(dispmode);
+        //leds = tmp_leds;
+    }
+
+
+  void showPixels()
+    {
+        showPixels(WAIT);
+    }
+    void showPixels(displayMode dispmode)
     {
 //printf("number:%d\n",NBIS2SERIALPINS);
 //code for the sprite
+
+ if (dispmode == NO_WAIT && isDisplaying == true)
+            {
+                //printf("deja display\n");
+                //return;
+                wasWaitingtofinish = true;
+                if(I2SClocklessVirtualLedDriver_semDisp==NULL)
+                    I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
+                    const TickType_t xDelay = 50 ; //to avoid full blocking
+                xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+                //printf("one re\n");
+            }
+
 #if HARDWARESPRITES == 1
         memset(target, 0, NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2);
         for (int i = 0; i < 8; i++)
@@ -869,13 +920,22 @@ public:
 #else
         loadAndTranspose2(leds, ledsstrips, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map);
 #endif
+ __displayMode=dispmode;
         dmaBufferActive = 1;
+         isDisplaying = true;
         i2sStart(DMABuffersTampon[2]);
+            if (dispmode == WAIT)
+        {
+            isWaiting = true;
+            if(  I2SClocklessVirtualLedDriver_sem==NULL)
+            I2SClocklessVirtualLedDriver_sem=xSemaphoreCreateBinary();
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_sem, portMAX_DELAY);
+        }
+        else{
+        isWaiting = false;
+        isDisplaying = true;
+        }
 
-        isWaiting = true;
-        if (I2SClocklessVirtualLedDriver_sem == NULL)
-            I2SClocklessVirtualLedDriver_sem = xSemaphoreCreateBinary();
-        xSemaphoreTake(I2SClocklessVirtualLedDriver_sem, portMAX_DELAY);
         //vTaskDelay(1/portTICK_PERIOD_MS);
         //delay(1);
     }
@@ -951,6 +1011,7 @@ public:
         _offsetDisplay.panel_height = 9999; //maximum
         _defaultOffsetDisplay = _offsetDisplay;
         this->leds = leds;
+        this->saveleds = leds;
 #if HARDWARESPRITES == 1
        // Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
         target = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
@@ -993,8 +1054,9 @@ public:
     volatile bool wait;
     displayMode __displayMode;
     volatile int ledToDisplay;
-    // volatile int oo=0;
-    uint8_t *leds;
+    // volatile int oo=0;   
+    uint8_t *leds,*saveleds;
+
     int dmaBufferCount = 2; //we use two buffers
     volatile bool transpose = false;
 
@@ -1073,12 +1135,18 @@ public:
          We have finished to display the strips
          */
         //ets_delay_us(1000);
-        xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_semDisp);
+        if(cont->__displayMode==NO_WAIT and cont->wasWaitingtofinish == true)
+        {
+            cont->wasWaitingtofinish=false;
+             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_semDisp);
+        }
         if (cont->isWaiting)
         {
-
+           // printf("on debloqu\n");
             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
         }
+       // printf("hehe\n");
+       cont->leds=cont->saveleds;
     }
 
     void putdefaultlatch(uint16_t *buff)
@@ -1220,6 +1288,7 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
         //        portBASE_TYPE HPTaskAwoken = 0;
         //            xSemaphoreGiveFromISR(((I2SClocklessVirtualLedDriver *)arg)->I2SClocklessVirtualLedDriver_semDisp, &HPTaskAwoken);
         //            if(HPTaskAwoken == pdTRUE) portYIELD_FROM_ISR();
+        // cont->isDisplaying = false;
         cont->i2sStop(cont);
         /*
       if(cont->isWaiting)
@@ -1403,6 +1472,7 @@ static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 #ifndef MULTIPLE_LEDSBUFFER
 static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
 {
+    #ifdef ENABLE_HARDWARE_SCROLL
     Lines firstPixel[nb_components];
     uint8_t _g, _r, _b;
     uint32_t offp, offi, offsetled;
@@ -2235,8 +2305,198 @@ static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uin
 #if nb_components > 3
     transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
 #endif
-}
+
+
 #else
+Lines firstPixel[nb_components];
+
+    uint8_t *poli = ledt + ledtodisp * nb_components;
+    buff += OFFSET;
+    //jump en deux
+    poli += NUM_LEDS_PER_STRIP * nb_components;
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+
+    //on revient strip 1
+    poli -= I2S_OFF3;
+
+    buff++;
+
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+    firstPixel[0].bytes[NBIS2SERIALPINS] = 255;
+    firstPixel[1].bytes[NBIS2SERIALPINS] = 255;
+    firstPixel[2].bytes[NBIS2SERIALPINS] = 255;
+#if nb_components > 3
+    firstPixel[3].bytes[NBIS2SERIALPINS] = 255;
+#endif
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+
+    //on va en strip 4
+    poli -= I2S_OFF4;
+
+    buff++;
+    firstPixel[0].bytes[NBIS2SERIALPINS] = 0;
+    firstPixel[1].bytes[NBIS2SERIALPINS] = 0;
+    firstPixel[2].bytes[NBIS2SERIALPINS] = 0;
+#if nb_components > 3
+    firstPixel[3].bytes[NBIS2SERIALPINS] = 0;
+#endif
+
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+    //on va en strip3
+    poli -= I2S_OFF3;
+    buff++;
+
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+    //on va en strip6
+    poli -= I2S_OFF4;
+    buff++;
+
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+    //on va en strip5
+    poli -= I2S_OFF3;
+    buff++;
+
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+    //on va en strip8
+    poli -= I2S_OFF4;
+    buff++;
+
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+    //on va en strip7
+    poli -= I2S_OFF3;
+    buff++;
+    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    {
+        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
+        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if nb_components > 3
+        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+#endif
+        poli += I2S_OFF;
+    }
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+#if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+
+
+#endif
+
+
+
+}
+#else //multiple led buffers
 static void IRAM_ATTR loadAndTranspose2(uint8_t *ledt, uint8_t **ledsstrips, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw)
 {
     Lines firstPixel[nb_components];

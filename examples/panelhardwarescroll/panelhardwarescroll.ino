@@ -6,6 +6,7 @@
 #define CLOCK_PIN 16
 #define LATCH_PIN 26
 #define NUM_STRIPS 32
+#define  ENABLE_HARDWARE_SCROLL 
 #include "I2SClocklessVirtualLedDriver.h"
 //here we have 3 colors per pixel
 uint8_t leds[NUM_STRIPS*NUM_LEDS_PER_STRIP*3];
