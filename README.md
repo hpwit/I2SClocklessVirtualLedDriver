@@ -220,7 +220,7 @@ driver.showPixels();
 
 //displaying the leds in leds2
 driver.showPixels(leds2);
-
+```
 
 ### And if you do not wanna wait while displaying ? 
 `void showPixels(displayMode dispmode)` and `void showPixels(displayMode dispmode,uint8_t *newleds)` are two functions that can allow you to display the pixels without having to wait
