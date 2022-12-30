@@ -22,7 +22,7 @@
 #include <rom/ets_sys.h>
 #include "esp32-hal-log.h"
 #include <soc/rtc.h>
-
+#include "math.h"
 #define I2S_DEVICE 0
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
