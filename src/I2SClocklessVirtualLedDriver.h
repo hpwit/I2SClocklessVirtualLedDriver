@@ -146,6 +146,7 @@ typedef union
     //uint32_t raw[2];
 } Lines;
 
+class I2SClocklessVirtualLedDriver;
 struct OffsetDisplay
 {
     int offsetx;
@@ -157,7 +158,8 @@ struct OffsetDisplay
 static const char *TAG = "I2SClocklessVirtualLedDriver";
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
 static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint16_t *B);
-static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map);
+//static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map);
+static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver * driver);
 static void IRAM_ATTR loadAndTranspose2(uint8_t *ledt, uint8_t **ledsstrips, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw);
 static void IRAM_ATTR transpose16x1_noinline22(uint32_t *A, uint8_t *B);
 
@@ -916,7 +918,8 @@ public:
         DMABuffersTampon[3]->descriptor.qe.stqe_next = 0;
         dmaBufferActive = 0;
 #ifndef MULTIPLE_LEDSBUFFER
-        loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
+       // loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
+       loadAndTranspose(this);
 #else
         loadAndTranspose2(leds, ledsstrips, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map);
 #endif
@@ -1259,7 +1262,8 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
             if (cont->ledToDisplay < cont->num_led_per_strip)
             {
 #ifndef MULTIPLE_LEDSBUFFER
-                loadAndTranspose(cont->leds, cont->_offsetDisplay, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->r_map, cont->g_map, cont->b_map);
+               // loadAndTranspose(cont->leds, cont->_offsetDisplay, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->r_map, cont->g_map, cont->b_map);
+               loadAndTranspose(cont);
 #else
                 loadAndTranspose2(cont->leds, cont->ledsstrips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map);
 #endif
@@ -1434,7 +1438,7 @@ static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 #if NBIS2SERIALPINS >= 8
 
 #if NBIS2SERIALPINS >= 12
-    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    t = (x1 & ff) | ((y1 >> 4) & ff2);ƒ
     y1 = ((x1 << 4) & ff) | (y1 & ff2);
     x1 = t;
    #else
@@ -1470,8 +1474,22 @@ static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 #endif
 
 #ifndef MULTIPLE_LEDSBUFFER
-static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
+//static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
+static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
+
+uint8_t *ledt=driver->leds;
+OffsetDisplay offdisp=driver->_offsetDisplay;
+uint16_t *buff=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
+int ledtodisp=driver->ledToDisplay;
+uint8_t *mapg=driver->__green_map;
+uint8_t *mapr=driver->__red_map;
+uint8_t *mapb=driver->__blue_map;
+uint8_t *mapw=driver->__white_map;
+uint8_t *r_map= driver->r_map;
+uint8_t *g_map = driver->g_map;
+uint8_t *b_map=driver->b_map;
+
     #ifdef ENABLE_HARDWARE_SCROLL
     Lines firstPixel[nb_components];
     uint8_t _g, _r, _b;
@@ -2308,7 +2326,10 @@ static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uin
 
 
 #else
+//§uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map
 Lines firstPixel[nb_components];
+
+
 
     uint8_t *poli = ledt + ledtodisp * nb_components;
     buff += OFFSET;
