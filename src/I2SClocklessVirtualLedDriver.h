@@ -2337,9 +2337,17 @@ Lines firstPixel[nb_components];
     poli += NUM_LEDS_PER_STRIP * nb_components;
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+        
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2360,9 +2368,18 @@ Lines firstPixel[nb_components];
 
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
+
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2394,9 +2411,17 @@ Lines firstPixel[nb_components];
 
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2414,9 +2439,17 @@ Lines firstPixel[nb_components];
 
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2435,9 +2468,17 @@ Lines firstPixel[nb_components];
 
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2456,9 +2497,17 @@ Lines firstPixel[nb_components];
 
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2476,9 +2525,17 @@ Lines firstPixel[nb_components];
 
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
@@ -2496,9 +2553,17 @@ Lines firstPixel[nb_components];
     buff++;
     for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
     {
+
+        #if STATICCOLOR == 1
         firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
         firstPixel[p_r].bytes[pin] = mapr[*(poli)];
         firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+
+        #else
+        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
+        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
+        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
+        #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
 #endif
