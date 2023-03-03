@@ -870,13 +870,13 @@ public:
          if(isDisplaying == true and __displayMode==NO_WAIT)
          {
             printf("dejà ein show n cours on attend\n");
-            //long t1=ESP.getCycleCount();
+            long t1=ESP.getCycleCount();
             wasWaitingtofinish = true;
             if(I2SClocklessVirtualLedDriver_semDisp==NULL)
                 I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
                 const TickType_t xDelay = 50 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, portMAX_DELAY);
-            //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+            printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
          }
         
         //uint8_t *tmp_leds;
@@ -909,7 +909,7 @@ public:
                 if(I2SClocklessVirtualLedDriver_semDisp==NULL)
                     I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
                     const TickType_t xDelay = 50 ; //to avoid full blocking
-                xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, portMAX_DELAY);
+                xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
                 //printf("one re\n");
             }
 #ifdef __HARDWARE_MAP
