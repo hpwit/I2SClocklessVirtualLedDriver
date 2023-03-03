@@ -151,6 +151,7 @@
 #include "hardwareSprite.h"
 #endif
 
+#include "framebuffer.h"
 typedef union
 {
     uint8_t bytes[16];
@@ -322,6 +323,8 @@ public:
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_sem = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semSync = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semDisp = NULL;
+    frameBuffer * framebuff;
+    bool useFrame=false;
    #ifdef __HARDWARE_MAP
         uint16_t * _hmap;
        volatile uint16_t * _hmapoff;
@@ -375,6 +378,7 @@ public:
         gpio_matrix_out(latch_pin, deviceBaseIndex[I2S_DEVICE] + NBIS2SERIALPINS + 8, false, false);
         gpio_set_direction((gpio_num_t)clock_pin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
         gpio_matrix_out(clock_pin, deviceClockIndex[I2S_DEVICE], false, false);
+
     }
 
     void setColorOrderPerStrip(int stripnumber, colorarrangment arr)
@@ -865,13 +869,13 @@ public:
         
          if(isDisplaying == true and __displayMode==NO_WAIT)
          {
-            //printf("dejà en cours on attend\n");
+            printf("dejà ein show n cours on attend\n");
             //long t1=ESP.getCycleCount();
             wasWaitingtofinish = true;
             if(I2SClocklessVirtualLedDriver_semDisp==NULL)
                 I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
                 const TickType_t xDelay = 50 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, portMAX_DELAY);
             //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
          }
         
@@ -885,7 +889,12 @@ public:
 
   void showPixels()
     {
-        showPixels(WAIT);
+        if(useFrame)
+        {
+            showPixels(NO_WAIT,framebuff->getFrametoDisplay());
+        }
+        else
+            showPixels(WAIT);
     }
     void showPixels(displayMode dispmode)
     {
@@ -894,13 +903,13 @@ public:
 
  if (dispmode == NO_WAIT && isDisplaying == true)
             {
-                //printf("deja display\n");
+                printf("deja display\n");
                 //return;
                 wasWaitingtofinish = true;
                 if(I2SClocklessVirtualLedDriver_semDisp==NULL)
                     I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
                     const TickType_t xDelay = 50 ; //to avoid full blocking
-                xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+                xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, portMAX_DELAY);
                 //printf("one re\n");
             }
 #ifdef __HARDWARE_MAP
@@ -967,6 +976,7 @@ public:
     }
 
     //list of the leds strips
+
 
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
@@ -1170,6 +1180,14 @@ public:
         driverInit = true;
     }
 
+
+ void initled(frameBuffer * framb, int *Pinsq, int clock_pin, int latch_pin)
+ {
+        framebuff=framb;
+        useFrame=true;
+        initled(framb->getFrametoDisplay(),  Pinsq,  clock_pin,  latch_pin);
+
+ }
     //private:
     volatile int dmaBufferActive = 0;
     volatile bool wait;
@@ -1252,6 +1270,7 @@ public:
         cont->i2sReset();
 
         cont->isDisplaying = false;
+        cont->leds=cont->saveleds;
         /*
          We have finished to display the strips
          */
@@ -1267,7 +1286,7 @@ public:
             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
         }
        // printf("hehe\n");
-       cont->leds=cont->saveleds;
+       
     }
 
     void putdefaultlatch(uint16_t *buff)
