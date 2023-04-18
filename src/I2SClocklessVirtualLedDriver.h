@@ -378,6 +378,7 @@ public:
         gpio_matrix_out(latch_pin, deviceBaseIndex[I2S_DEVICE] + NBIS2SERIALPINS + 8, false, false);
         gpio_set_direction((gpio_num_t)clock_pin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
         gpio_matrix_out(clock_pin, deviceClockIndex[I2S_DEVICE], false, false);
+      
 
     }
 
@@ -432,13 +433,13 @@ public:
         float tmp;
         for (int i = 0; i < 256; i++)
         {
-            tmp = powf((float)i / 255, 1 / _gammag);
+            tmp = powf((float)(i)/ 255,  _gammag);
             __green_map[i] = (uint8_t)(tmp * brightness);
-            tmp = powf((float)i / 255, 1 / _gammag);
+            tmp = powf((float)( i)/ 255,  _gammab);
             __blue_map[i] = (uint8_t)(tmp * brightness);
-            tmp = powf((float)i / 255, 1 / _gammag);
+            tmp = powf((float)(i) / 255,  _gammar);
             __red_map[i] = (uint8_t)(tmp * brightness);
-            tmp = powf((float)i / 255, 1 / _gammag);
+            tmp = powf((float)(i) / 255,  _gammaw);
             __white_map[i] = (uint8_t)(tmp * brightness);
         }
     }
@@ -508,8 +509,11 @@ public:
 #else
         //Serial.println("precise clock");
         i2s->clkm_conf.clka_en = 1;
+        #ifndef _20_MHZ_CLK
         rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
-
+       #else
+        rtc_clk_apll_enable(true, 0, 0, 8, 1); 
+        #endif
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
         i2s->clkm_conf.clkm_div_b = 0;   //CLOCK_DIVIDER_B;
         i2s->clkm_conf.clkm_div_num = 1; //CLOCK_DIVIDER_N;
@@ -869,14 +873,14 @@ public:
         
          if(isDisplaying == true and __displayMode==NO_WAIT)
          {
-            printf("dejà ein show n cours on attend\n");
+            //printf("dejà ein show n cours on attend\n");
             long t1=ESP.getCycleCount();
             wasWaitingtofinish = true;
             if(I2SClocklessVirtualLedDriver_semDisp==NULL)
                 I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
                 const TickType_t xDelay = 50 ; //to avoid full blocking
             xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
-            printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
+            //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
          }
         
         //uint8_t *tmp_leds;

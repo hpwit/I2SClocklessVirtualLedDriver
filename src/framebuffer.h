@@ -20,6 +20,8 @@ frameBuffer(int num_led)
     for(int i=0;i<_NB_FRAME;i++)
     {
         frames[i] = (Pixel *)calloc(num_led, sizeof(Pixel));
+        if(!frames[i])
+         printf("no memoory\n");
     }
 }
     
