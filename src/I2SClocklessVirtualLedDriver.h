@@ -910,8 +910,8 @@ public:
          offdisp._sin=(int) (float)(128*sin (-offdisp.rotation)/offdisp.scallingy);
 
 
-            //offdisp._scallingx=10/ offdisp.scallingx;
-             //offdisp._scallingy= 10/ offdisp.scallingy;
+            offdisp._scallingx=16/ offdisp.scallingx;
+             offdisp._scallingy= 16/ offdisp.scallingy;
             // Serial.println(offdisp._cos);
         _offsetDisplay = offdisp;
     #ifdef _HARDWARE_SCROLL_MAP
@@ -1034,7 +1034,7 @@ void showPixels(OffsetDisplay offdisp)
     {
 //printf("number:%d\n",NBIS2SERIALPINS);
 //code for the sprite
-
+//printf("core ID:%d\n",xPortGetCoreID());
  if (dispmode == NO_WAIT && isDisplaying == true)
             {
                 ESP_LOGI(TAG, "already displaying in show");
@@ -1133,8 +1133,8 @@ int remap(int val, OffsetDisplay off)
     {
         //xr=(xe*off._cos)*20/128/off.scallingx;
        // yr=(ye*off._cos)*20/128/off.scallingx;
-       xr=xe;
-       yr=ye;
+       xr=xe*off._scallingx/16;
+       yr=ye*off._scallingy/16;
     }
     if(off.enableLoopx)
     {
@@ -1157,71 +1157,36 @@ int remap(int val, OffsetDisplay off)
             return  off.image_width*off.image_height+1;
     }
     return xr%off.image_width+(yr%off.image_height)*off.image_width;
-}
+}//
 
 #else
 int remap(int val, OffsetDisplay off)
 {
-
+    long xr,yr,newx,newy;
+    long xe=(val % off.panel_width);//+off._offx);//%off.window_width;
+    long ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
 #ifdef _ROTATION
-#ifndef _ROLL
- int xe=(val % off.panel_width);//+off._offx);//%off.window_width;
-int ye=(val/off.panel_width);//+off._offy);//%off.window_height;
-
- int xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc+off._offx;//-off.offsetx+5*off.image_width;
-
-             int yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)/128+off.yc+off._offy;//-off.offsety+5*off.image_height;
-        //if(yr<0 double yr>=off.image_height)
-          //  return  off.image_width*off.image_height+1;
-   // int newx=0;
-    //int newy=0;
- //   printf("%d %d %f %f %f %f\n",xe,ye,off._cos,off._sin,xr,yr);
-
-      int  newx=((int)(xr))%off.image_width;
-
-     int  newy=(((int)(yr))%off.image_height)*off.image_width;
-     #else
-
-    int xe=(val % off.panel_width);//+off._offx);//%off.window_width;
-int ye=(val/off.panel_width);//+off._offy);//%off.window_height;
-
- int xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc-off.offsetx;
-            if(xr<0 or xr>=off.image_width)
+             xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc;
+            yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)/128+off.yc;
+#else
+       xr=xe*off._scallingx/16;
+       yr=ye*off._scallingy/16;
+#endif
+#ifdef _LOOPX
+    xr+=off._offx;
+#else
+        xr-=off.offsetx;
+        if(xr<0 or xr>=off.image_width)
             return  off.image_width*off.image_height+1;
-             int yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)/128+off.yc-off.offsety;
+#endif
+#ifdef _LOOPY
+    yr+=off._offy;
+#else
+        yr-=off.offsety;
         if(yr<0 or yr>=off.image_height)
             return  off.image_width*off.image_height+1;
-   // int newx=0;
-    //int newy=0;
- //   printf("%d %d %f %f %f %f\n",xe,ye,off._cos,off._sin,xr,yr);
-
-      int  newx=((int)(xr))%off.image_width;
-
-     int  newy=(((int)(yr))%off.image_height)*off.image_width;
-
 #endif
-#else
-
-
-    #ifdef _ROLL
-        int x=(val%off.panel_width)-off.offsetx;
-        int y=(val/off.panel_width)-off.offsety;
-
-        if(x<0 or x>=off.image_width)
-            return  off.image_width*off.image_height+1;
-        if(y<0 or y>=off.image_height)
-            return  off.image_width*off.image_height+1;
-        //y=((val/off.panel_width+off._offy)%off.window_height);
-
-      int newx=x;
-    int newy=y*off.image_width;
-        #else
-    int newx=(val%off.panel_width+off._offx)%off.window_width;
-    int newy=((val/off.panel_width+off._offy)%off.window_height)*off.image_width;
-
-    #endif
-#endif
-return(newy+newx);
+return xr%off.image_width+(yr%off.image_height)*off.image_width;
 }
 #endif
 
@@ -1474,6 +1439,8 @@ void calculateMapping(OffsetDisplay off)
       _offsetDisplay.enableRotation=false;
        _offsetDisplay.scallingx=1;
         _offsetDisplay.scallingy=1;
+               _offsetDisplay._scallingx=16;
+        _offsetDisplay._scallingy=16;
 
         _defaultOffsetDisplay = _offsetDisplay;
 
