@@ -158,7 +158,11 @@
 #define _LEDMAPPING
 #endif
 
-
+#ifdef USE_PIXELSLIB
+#include "pixelslib.h"
+#else
+#include "___pixeltypes.h"
+#endif
 
 #if HARDWARESPRITES == 1
 #include "hardwareSprite.h"
@@ -895,16 +899,19 @@ public:
                offdisp._offx=  -offdisp.offsetx + 30 * offdisp.window_width;
          offdisp._offy= -offdisp.offsety + 30 * offdisp.window_height;
          #endif
-         offdisp._cos=(int) (float)(128*cos (-offdisp.rotation));
          
-         offdisp._sin=(int) (float)(128*sin (-offdisp.rotation));
-         if(offdisp.scallingx<0.1)
+                  if(offdisp.scallingx<0.1)
             offdisp.scallingx=0.1;
                if(offdisp.scallingy<0.1)
             offdisp.scallingy=0.1;
+            
+         offdisp._cos=(int) (float)(128*cos (-offdisp.rotation)/offdisp.scallingx);
+         
+         offdisp._sin=(int) (float)(128*sin (-offdisp.rotation)/offdisp.scallingy);
 
-            offdisp._scallingx=10/ offdisp.scallingx;
-             offdisp._scallingy= 10/ offdisp.scallingy;
+
+            //offdisp._scallingx=10/ offdisp.scallingx;
+             //offdisp._scallingy= 10/ offdisp.scallingy;
             // Serial.println(offdisp._cos);
         _offsetDisplay = offdisp;
     #ifdef _HARDWARE_SCROLL_MAP
@@ -1111,19 +1118,23 @@ Calculate the Mapping
 #ifdef _SOFT_MAP_CALC
 int remap(int val, OffsetDisplay off)
 {
-    int xr,yr,newx,newy;
-    int xe=(val % off.panel_width);//+off._offx);//%off.window_width;
-    int ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
+    long xr,yr,newx,newy;
+    long xe=(val % off.panel_width);//+off._offx);//%off.window_width;
+    long ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
    
     if(off.enableRotation)
     {
-        xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)*20/128/off.scallingx+off.xc;
-        yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)*20/128/off.scallingx+off.yc; 
+       // xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)*20/128/off.scallingx+off.xc;
+        //yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)*20/128/off.scallingx+off.yc; 
+         xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc;
+         yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)/128+off.yc;
     }
     else
     {
-        xr=(xe*off._cos)*20/128/off.scallingx;
-        yr=(ye*off._cos)*20/128/off.scallingx;
+        //xr=(xe*off._cos)*20/128/off.scallingx;
+       // yr=(ye*off._cos)*20/128/off.scallingx;
+       xr=xe;
+       yr=ye;
     }
     if(off.enableLoopx)
     {
@@ -1461,8 +1472,8 @@ void calculateMapping(OffsetDisplay off)
       _offsetDisplay.enableLoopx=false;
       _offsetDisplay.enableLoopy=false;
       _offsetDisplay.enableRotation=false;
-       _offsetDisplay.scallingx=20;
-        _offsetDisplay.scallingy=20;
+       _offsetDisplay.scallingx=1;
+        _offsetDisplay.scallingy=1;
 
         _defaultOffsetDisplay = _offsetDisplay;
 
