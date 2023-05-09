@@ -360,6 +360,7 @@ public:
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_sem = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semSync = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semDisp = NULL;
+    volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_waitDisp = NULL;
     frameBuffer * framebuff;
     bool useFrame=false;
    #ifdef __HARDWARE_MAP
@@ -974,13 +975,13 @@ void showPixels(OffsetDisplay offdisp)
  {
      if(isDisplaying == true and __displayMode==NO_WAIT)
          {
-             ESP_LOGI(TAG, "already displaying");
-            long t1=ESP.getCycleCount();
+             ESP_LOGD(TAG, "already displaying");
+           // long t1=ESP.getCycleCount();
             wasWaitingtofinish = true;
-            if(I2SClocklessVirtualLedDriver_semDisp==NULL)
-                I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
-                const TickType_t xDelay = 50 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+            if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
+                I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
+                const TickType_t xDelay = 100 ; //to avoid full blocking
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
             //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
          }
         
@@ -1003,13 +1004,13 @@ void showPixels(OffsetDisplay offdisp)
         
          if(isDisplaying == true and __displayMode==NO_WAIT)
          {
-             ESP_LOGI(TAG, "already displaying");
-            long t1=ESP.getCycleCount();
+             ESP_LOGD(TAG, "already displaying");
+           // long t1=ESP.getCycleCount();
             wasWaitingtofinish = true;
-            if(I2SClocklessVirtualLedDriver_semDisp==NULL)
-                I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
-                const TickType_t xDelay = 50 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+            if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
+                I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
+                const TickType_t xDelay = 100 ; //to avoid full blocking
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
             //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
          }
         
@@ -1035,15 +1036,15 @@ void showPixels(OffsetDisplay offdisp)
 //printf("number:%d\n",NBIS2SERIALPINS);
 //code for the sprite
 //printf("core ID:%d\n",xPortGetCoreID());
- if (dispmode == NO_WAIT && isDisplaying == true)
+ if (__displayMode == NO_WAIT && isDisplaying == true)
             {
-                ESP_LOGI(TAG, "already displaying in show");
+                ESP_LOGD(TAG, "already displaying in show");
                 //return;
                 wasWaitingtofinish = true;
-                if(I2SClocklessVirtualLedDriver_semDisp==NULL)
-                    I2SClocklessVirtualLedDriver_semDisp = xSemaphoreCreateBinary();
-                    const TickType_t xDelay = 50 ; //to avoid full blocking
-                xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, xDelay);
+            if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
+                I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
+                const TickType_t xDelay = 100 ; //to avoid full blocking
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
                 //printf("one re\n");
             }
 #ifdef __HARDWARE_MAP
@@ -1592,7 +1593,7 @@ void calculateMapping(OffsetDisplay off)
         cont->i2sReset();
 
         cont->isDisplaying = false;
-        cont->leds=cont->saveleds;
+       // cont->leds=cont->saveleds;
         /*
          We have finished to display the strips
          */
@@ -1600,7 +1601,7 @@ void calculateMapping(OffsetDisplay off)
         if(cont->__displayMode==NO_WAIT and cont->wasWaitingtofinish == true)
         {
             cont->wasWaitingtofinish=false;
-             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_semDisp);
+             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
         }
         if (cont->isWaiting)
         {
