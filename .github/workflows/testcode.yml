@@ -22,7 +22,7 @@ jobs:
          # - rp2040:rp2040:rpipico
 
         include:
-          - arduino-boards-fqbn: esp32:esp32:esp32:DebugLevel=debug:FlashMode=dio,FlashFreq=80,FlashSize=4M
+          - arduino-boards-fqbn: esp32:esp32:esp32:DebugLevel=debug,FlashMode=dio,FlashFreq=80,FlashSize=4M
             platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
             sketch-names: gettingstarted.ino # Comma separated list of sketch names (no path required) or patterns to use in build
             board-name: esp32
