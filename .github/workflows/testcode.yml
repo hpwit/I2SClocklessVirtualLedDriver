@@ -52,7 +52,7 @@ jobs:
           sketch-names: ${{ matrix.sketch-names }}
           set-build-path: true # build in the sketch folder
           #build-properties: ${{ toJson(matrix.build-properties) }}
-          extra-arduino-cli-args: ${{ matrix.extra-arduino-cli-args }}
+          #extra-arduino-cli-args: ${{ matrix.extra-arduino-cli-args }}
 
 ###
   
@@ -68,5 +68,5 @@ jobs:
           partitions-csv: partitions.csv
           firmware-bin: gettingstarted.ino.ino.bin
           bootloader-bin: gettingstarted.ino.ino.bootloader.bin
-         # partitions-bin: gettingstarted.ino.ino.partitions.bin
+          partitions-bin: gettingstarted.ino.ino.partitions.bin
          # spiffs-bin: Test_tar_gz_tgz.ino.spiffs.bin
