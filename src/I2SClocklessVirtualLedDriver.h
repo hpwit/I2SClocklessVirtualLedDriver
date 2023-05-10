@@ -1918,7 +1918,7 @@ static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
 
 uint8_t *ledt=driver->leds;
-OffsetDisplay offdisp=driver->_offsetDisplay;
+//OffsetDisplay offdisp=driver->_offsetDisplay;
 uint16_t *buff=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
 int ledtodisp=driver->ledToDisplay;
 uint8_t *mapg=driver->__green_map;
