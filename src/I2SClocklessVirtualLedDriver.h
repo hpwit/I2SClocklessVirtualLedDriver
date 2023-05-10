@@ -207,11 +207,11 @@ struct OffsetDisplay
 
 static const char *TAG = "I2SClocklessVirtualLedDriver";
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
- static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint16_t *B);
+ static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B);
 //static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map);
 static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver * driver);
-static void IRAM_ATTR loadAndTranspose2(uint8_t *ledt, uint8_t **ledsstrips, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw);
-static void IRAM_ATTR transpose16x1_noinline22(uint32_t *A, uint8_t *B);
+//static void IRAM_ATTR loadAndTranspose2(uint8_t *ledt, uint8_t **ledsstrips, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw);
+//static void IRAM_ATTR transpose16x1_noinline22(uint32_t *A, uint8_t *B);
 
 enum colorarrangment
 {
@@ -583,7 +583,11 @@ public:
         SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
         */
         esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
-
+        if (!e)
+        {
+            ESP_LOGE(TAG,"Impossible to create interupt allocation");
+            return;
+        }
         // -- Create a semaphore to block execution until all the controllers are done
 
         if (I2SClocklessVirtualLedDriver_sem == NULL)
@@ -815,7 +819,7 @@ public:
             return;
         }
 #ifndef MULTIPLE_LEDSBUFFER
-        uint8_t *offset = leds + (pos << 1) + pos;
+      uint8_t *offset = leds + (pos << 1) + pos;
 
 #else
         uint8_t strip = pos / NUM_LEDS_PER_STRIP;
@@ -824,7 +828,7 @@ public:
 #endif
         if (nb_components == 3)
         {
-            uint8_t *offset = leds + (pos << 1) + pos;
+           // uint8_t *offset = leds + (pos << 1) + pos;
             *(offset) = red;
             *(++offset) = green;
             *(++offset) = blue;
@@ -1123,7 +1127,7 @@ Calculate the Mapping
 #ifdef _SOFT_MAP_CALC
 int remap(int val, OffsetDisplay off)
 {
-    long xr,yr,newx,newy;
+    long xr,yr;//,newx,newy;
     long xe=(val % off.panel_width);//+off._offx);//%off.window_width;
     long ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
    
@@ -1920,17 +1924,20 @@ int ledtodisp=driver->ledToDisplay;
 uint8_t *mapg=driver->__green_map;
 uint8_t *mapr=driver->__red_map;
 uint8_t *mapb=driver->__blue_map;
+#if nb_components >3
 uint8_t *mapw=driver->__white_map;
+#endif
+ #if STATICCOLOR == 0
 uint8_t *r_map= driver->r_map;
 uint8_t *g_map = driver->g_map;
 uint8_t *b_map=driver->b_map;
-
+#endif
 
 
 //§uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map
 Lines firstPixel[nb_components];
 
- uint16_t led_tmp=ledtodisp;
+ //uint16_t led_tmp=ledtodisp;
 
      #ifdef _LEDMAPPING
         //#ifdef __SOFTWARE_MAP
