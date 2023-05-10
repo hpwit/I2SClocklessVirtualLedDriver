@@ -326,7 +326,7 @@ class Pixels
     }
     void clear()
     {
-        memset(ledpointer,0,_size*sizeof(Pixel));
+        //memset(ledpointer,0,_size*sizeof(Pixel));
     }
 
     Pixels  createSubset(int start,int length)
