@@ -29,7 +29,7 @@ jobs:
             extra-arduino-cli-args: "--build-property build.build_flags=-DCORE_DEBUG_LEVEL=4" 
             build-properties:
             All:
-            -DCORE_DEBUG_LEVEL=4
+             DCORE_DEBUG_LEVEL=4
 
 
 
