@@ -1171,7 +1171,7 @@ int remap(int val, OffsetDisplay off)
 #else
 int remap(int val, OffsetDisplay off)
 {
-    long xr,yr,newx,newy;
+    long xr,yr;//,newx,newy;
     long xe=(val % off.panel_width);//+off._offx);//%off.window_width;
     long ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
 #ifdef _ROTATION
