@@ -18,7 +18,7 @@ jobs:
 
         arduino-boards-fqbn:
          # - esp8266:esp8266:generic:eesz=4M3M,xtal=80
-          - esp32:esp32:esp32:FlashMode=dio,FlashFreq=80,FlashSize=4M
+          - esp32:esp32:esp32:DebugLevel=debug,FlashMode=dio,FlashFreq=80,FlashSize=4M
          # - rp2040:rp2040:rpipico
 
         include:
@@ -66,7 +66,7 @@ jobs:
           qemu-timeout: 999
           build-folder: examples/gettingstarted/build
           partitions-csv: partitions.csv
-          firmware-bin: gettingstarted.ino.ino.bin
-          bootloader-bin: gettingstarted.ino.ino.bootloader.bin
-          partitions-bin: gettingstarted.ino.ino.partitions.bin
+          firmware-bin: gettingstarted.ino.bin
+          bootloader-bin: gettingstarted.ino.bootloader.bin
+          partitions-bin: gettingstarted.ino.partitions.bin
          # spiffs-bin: Test_tar_gz_tgz.ino.spiffs.bin
