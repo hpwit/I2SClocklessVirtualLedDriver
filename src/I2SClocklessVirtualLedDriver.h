@@ -1369,6 +1369,7 @@ void calculateMapping(OffsetDisplay off)
 
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
+        ESP_LOGI(TAG,"Start driver");
         driverInit = false;
 #ifdef MULTIPLE_LEDSBUFFER
         allleds.init(ledsstripsorigin);
