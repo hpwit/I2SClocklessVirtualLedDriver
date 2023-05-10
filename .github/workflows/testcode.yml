@@ -30,6 +30,7 @@ jobs:
             build-properties:
             All:
              DCORE_DEBUG_LEVEL=4
+             -DDEBUG
 
 
 
@@ -49,7 +50,7 @@ jobs:
           required-libraries: ${{ matrix.required-libraries }}
           sketch-names: ${{ matrix.sketch-names }}
           set-build-path: true # build in the sketch folder
-          #build-properties: ${{ toJson(matrix.build-properties) }}
+          build-properties: ${{ toJson(matrix.build-properties) }}
 
 ###
   
