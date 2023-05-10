@@ -1,0 +1,25 @@
+name: learn-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+on: [push]
+jobs:
+  check-bats-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+      - run: git clone https://github.com/per1234/arduino-ci-script.git "${HOME}/scripts/arduino-ci-script"
+      - run: cd "${HOME}/scripts/arduino-ci-script"
+      - run: git fetch --tags
+      - run: source "${HOME}/scripts/arduino-ci-script/arduino-ci-script.sh"
+      - run: set_library_testing "true"
+      - run: set_application_folder "${HOME}/arduino-ide"
+      - run: set_sketchbook_folder "${HOME}/arduino-sketchbook"
+
+  #- install_ide '("1.8.0" "1.8.10" "1.8.11")'
+     - run: install_ide '("newest")'
+       -  run: install_library
+  -  run: install_package "esp32:esp32" "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json" #  # esp32:esp32:m5stack-core-esp32
+  -  run: pip install pyserial
+
