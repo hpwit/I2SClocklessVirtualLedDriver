@@ -64,7 +64,7 @@ jobs:
           # Set the build folder and file names for esp32-qemu-sim
           debug: true
           qemu-timeout: 999
-          build-folder: examples/gettingstarted.ino/build
+          build-folder: examples/gettingstarted/build
           partitions-csv: partitions.csv
           firmware-bin: gettingstarted.ino.ino.bin
           bootloader-bin: gettingstarted.ino.ino.bootloader.bin
