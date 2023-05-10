@@ -364,15 +364,16 @@ public:
     frameBuffer * framebuff;
     bool useFrame=false;
    #ifdef __HARDWARE_MAP
-        uint16_t * _hmap;
+        uint16_t * _hmap,*_defaulthmap;
        volatile uint16_t * _hmapoff;
            void setHmap( uint16_t * map)
     {
-        _hmap=map;
+        _defaulthmap=map;
     }
+   
     #ifdef _HARDWARE_SCROLL_MAP
      uint16_t * _hmapscroll;
-     uint16_t * _hmaptmp;
+     //uint16_t * _hmaptmp;
     #endif
 
     #endif
@@ -871,10 +872,26 @@ public:
     }
 */
 
+ void waitDisplay()
+ {
+    if(isDisplaying == true and __displayMode==NO_WAIT)
+            {
+                wasWaitingtofinish = true;
+                ESP_LOGD(TAG, "already displaying... wait");
+                if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
+                {
+                    I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
+                }
+                const TickType_t xDelay = 50 ; 
+                xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp,xDelay);
+            
+            }
+ }
 
-    void showPixels(displayMode dispmode, OffsetDisplay offdisp)
-    {
-        #ifdef __HARDWARE_MAP
+
+void calculateOffsetDisplay(OffsetDisplay offdisp)
+{
+    #ifdef __HARDWARE_MAP
                 if(offdisp.image_width==0 or offdisp.image_width==30000  )
         {
             offdisp.image_width=offdisp.panel_width;
@@ -915,10 +932,11 @@ public:
              offdisp._scallingy= 16/ offdisp.scallingy;
             // Serial.println(offdisp._cos);
         _offsetDisplay = offdisp;
+        _hmap=_defaulthmap;
     #ifdef _HARDWARE_SCROLL_MAP
       calculateMapping2(offdisp);
        
-     _hmaptmp=_hmap;
+    
      _hmap= _hmapscroll;
       #else
 
@@ -927,97 +945,87 @@ public:
        
       #endif
       #endif
-        showPixels(dispmode);
-         #ifdef _HARDWARE_SCROLL_MAP
-         _hmap=_hmaptmp;
-         #endif
-        // calculateMapping(_defaultOffsetDisplay);
-        _offsetDisplay = _defaultOffsetDisplay;
+      #endif
+}
+
+    void showPixels(displayMode dispmode, OffsetDisplay offdisp)
+    {
+        waitDisplay();
+        #ifdef __HARDWARE_MAP
+   calculateOffsetDisplay(offdisp);
+        __displayMode=dispmode;
+        leds=saveleds;
+        __showPixels();
         #endif
     }
 
-    /*
-        Show pixel circular
-        */
-    /*
-            void showPixels(uint8_t *new_leds,int offsett)
-            {
-                startleds=offsett;
-                showPixels(new_leds);
-                startleds=0;
-            }
 
-
-            void showPixels(int offsett)
-            {
-                startleds=offsett;
-                showPixels();
-                startleds=0;
-            }
-            */
-
-    /*
-        Show pixels classiques
-        */
     void showPixels(uint8_t *newleds)
     {
-        //uint8_t *tmp_leds;
-       // tmp_leds = leds;
+
+        waitDisplay();
+         #ifdef __HARDWARE_MAP
+          _hmap=_defaulthmap;
+        #endif
+
         leds = newleds;
-        showPixels();
-        //leds = tmp_leds;
+         __displayMode=WAIT;
+        _offsetDisplay=_defaultOffsetDisplay;
+        __showPixels();
+  
     }
 void showPixels(OffsetDisplay offdisp)
 {
-    showPixels(WAIT,offdisp);
+            waitDisplay();
+         #ifdef __HARDWARE_MAP
+         calculateOffsetDisplay(offdisp);
+        #endif
+
+        leds = saveleds;
+         __displayMode=WAIT;
+        _offsetDisplay=offdisp;
+    __showPixels();
 }
  void showPixels(displayMode dispmode,uint8_t *newleds,OffsetDisplay offd)
  {
-     if(isDisplaying == true and __displayMode==NO_WAIT)
-         {
-             ESP_LOGD(TAG, "already displaying");
-           // long t1=ESP.getCycleCount();
-            wasWaitingtofinish = true;
-            if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
-                I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
-                const TickType_t xDelay = 100 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
-            //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
-         }
-        
-        //uint8_t *tmp_leds;
-        //tmp_leds = leds;
-       // leds = newleds;
-     leds = newleds;
-     showPixels(dispmode,offd);
+        waitDisplay();
+        #ifdef __HARDWARE_MAP
+   calculateOffsetDisplay(offd);
+        __displayMode=dispmode;
+        leds=newleds;
+        __showPixels();
+        // calculateMapping(_defaultOffsetDisplay);
+       // _offsetDisplay = _defaultOffsetDisplay;
+        #endif
  }
 
  void showPixels(uint8_t *newleds,OffsetDisplay offd)
  {
-     leds = newleds;
-     showPixels(WAIT,offd);
+        waitDisplay();
+        #ifdef __HARDWARE_MAP
+        calculateOffsetDisplay(offd);
+        __displayMode=WAIT;
+        leds=newleds;
+        __showPixels();
+        // calculateMapping(_defaultOffsetDisplay);
+       // _offsetDisplay = _defaultOffsetDisplay;
+        #endif
  }
 
         void showPixels(displayMode dispmode,uint8_t *newleds)
     {
         //printf("je tente display\n");
         
-         if(isDisplaying == true and __displayMode==NO_WAIT)
-         {
-             ESP_LOGD(TAG, "already displaying");
-           // long t1=ESP.getCycleCount();
-            wasWaitingtofinish = true;
-            if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
-                I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
-                const TickType_t xDelay = 100 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
-            //printf("on retourne %ld\n",(ESP.getCycleCount()-t1)/240000);
-         }
-        
+    waitDisplay();
         //uint8_t *tmp_leds;
         //tmp_leds = leds;
+                 #ifdef __HARDWARE_MAP
+          _hmap=_defaulthmap;
+        #endif
         leds = newleds;
-        showPixels(dispmode);
+        __displayMode=dispmode;
+        _offsetDisplay=_defaultOffsetDisplay;
+          __showPixels();
         //leds = tmp_leds;
     }
 
@@ -1029,24 +1037,20 @@ void showPixels(OffsetDisplay offdisp)
             showPixels(NO_WAIT,framebuff->getFrametoDisplay());
         }
         else
-            showPixels(WAIT);
+        {
+            waitDisplay();
+                   leds = saveleds;
+        __displayMode=WAIT;
+        _offsetDisplay=_defaultOffsetDisplay;
+            __showPixels();
+        }
     }
-    void showPixels(displayMode dispmode)
+
+
+    void __showPixels()
     {
-//printf("number:%d\n",NBIS2SERIALPINS);
-//code for the sprite
-//printf("core ID:%d\n",xPortGetCoreID());
- if (__displayMode == NO_WAIT && isDisplaying == true)
-            {
-                ESP_LOGD(TAG, "already displaying in show");
-                //return;
-                wasWaitingtofinish = true;
-            if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
-                I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
-                const TickType_t xDelay = 100 ; //to avoid full blocking
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
-                //printf("one re\n");
-            }
+
+
 #ifdef __HARDWARE_MAP
            _hmapoff=_hmap;
         
@@ -1090,11 +1094,11 @@ void showPixels(OffsetDisplay offdisp)
 #else
         loadAndTranspose2(leds, ledsstrips, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map);
 #endif
- __displayMode=dispmode;
+ //__displayMode=dispmode;
         dmaBufferActive = 1;
          isDisplaying = true;
         i2sStart(DMABuffersTampon[2]);
-            if (dispmode == WAIT)
+            if (__displayMode == WAIT)
         {
             isWaiting = true;
             if(  I2SClocklessVirtualLedDriver_sem==NULL)
@@ -1221,9 +1225,9 @@ void calculateMapping2(OffsetDisplay off)
       uint16_t offset2=0;
          for(uint16_t leddisp=0;leddisp<NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8;leddisp++)
          {
-            int val=_hmap[leddisp];
+            int val=_defaulthmap[leddisp];
             //_hmapscroll[leddisp]=(((val/off.panel_width+off._offy)%off.panel_height)*off.image_width+(val % off.panel_width+off._offx)%off.panel_width);
-             _hmapscroll[leddisp]=remap(_hmap[leddisp],off);//*nb_components;
+             _hmapscroll[leddisp]=remap(_defaulthmap[leddisp],off);//*nb_components;
             //remap2(_hmap[leddisp],_hmapscroll+leddisp,off);
          }
 }
@@ -1240,7 +1244,7 @@ void calculateMapping(OffsetDisplay off)
         }
         */
       //int offset=0;
-      if(!_hmap)
+      if(!_defaulthmap)
       {
         ESP_LOGE(TAG, "No more memory\n");
         return;
@@ -1254,10 +1258,10 @@ void calculateMapping(OffsetDisplay off)
                  {
 
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1268,10 +1272,10 @@ void calculateMapping(OffsetDisplay off)
                  {
 
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1281,10 +1285,10 @@ void calculateMapping(OffsetDisplay off)
                  {
 
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1293,10 +1297,10 @@ void calculateMapping(OffsetDisplay off)
                                for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
                  {
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1305,10 +1309,10 @@ void calculateMapping(OffsetDisplay off)
                  for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
                  {
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1319,10 +1323,10 @@ void calculateMapping(OffsetDisplay off)
                  {
 
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1332,10 +1336,10 @@ void calculateMapping(OffsetDisplay off)
                  {
 
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1345,10 +1349,10 @@ void calculateMapping(OffsetDisplay off)
                  {
 
                         #ifdef __HARDWARE_S
-                         _hmap[offset2]=remap(mapLed(led_tmp),off);
+                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
 
                          #else
-                          _hmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
+                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
                          #endif
                          led_tmp+=I2S_OFF_MAP;
                          offset2++;
@@ -1444,6 +1448,7 @@ void calculateMapping(OffsetDisplay off)
         _offsetDisplay._scallingy=16;
 
         _defaultOffsetDisplay = _offsetDisplay;
+        __defaultDisplayMode = WAIT;
 
         this->leds = leds;
         this->saveleds = leds;
@@ -1453,8 +1458,8 @@ void calculateMapping(OffsetDisplay off)
 #endif
 
 #ifdef __HARDWARE_MAP
-    _hmap=(uint16_t *)malloc(  NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2+2);
-    if(!_hmap)
+    _defaulthmap=(uint16_t *)malloc(  NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2+2);
+    if(!_defaulthmap)
     {
         Serial.printf("no memory\n");
     }
@@ -1514,7 +1519,7 @@ void calculateMapping(OffsetDisplay off)
     //private:
     volatile int dmaBufferActive = 0;
     volatile bool wait;
-    displayMode __displayMode;
+    displayMode __displayMode,__defaultDisplayMode;
     volatile int ledToDisplay;
     // volatile int oo=0;   
     uint8_t *leds,*saveleds;
@@ -1705,6 +1710,8 @@ void calculateMapping(OffsetDisplay off)
 
     // static void IRAM_ATTR interruptHandler(void *arg);
 };
+
+
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 {
 
