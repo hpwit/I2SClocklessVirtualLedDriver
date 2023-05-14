@@ -1323,7 +1323,7 @@ void calculateMapping2(OffsetDisplay off)
 
          for(uint16_t leddisp=0;leddisp<NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8;leddisp++)
          {
-             _hmapscroll[leddisp]=remap(_defaulthmap[leddisp],off);//*nb_components; this shiuld be possiblr
+             _hmapscroll[leddisp]=remap(_defaulthmap[leddisp],off); 
          }
 }
 */
@@ -2683,7 +2683,7 @@ Lines firstPixel[nb_components];
 static void showPixelsTask(void *pvParameters)
 {
     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
-    const TickType_t xMaxBlockTime = pdMS_TO_TICKS( 500 );
+    //const TickType_t xMaxBlockTime = pdMS_TO_TICKS( 500 );
     // -- Run forever...
     for(;;) {
         // -- Wait for the trigger
