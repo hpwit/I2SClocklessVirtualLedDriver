@@ -7,7 +7,7 @@
 #define NUM_STRIPS 32
 #include "I2SClocklessVirtualLedDriver.h"
 //here we have 3 colors per pixel
-uint8_t leds[NUM_STRIPS*NUM_LEDS_PER_STRIP*3];
+Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];
 
 int pins[16]={0,2,4,5};
 
@@ -15,7 +15,7 @@ I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
+  driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
     driver.setBrightness(10);
     
 }
@@ -30,12 +30,8 @@ void loop() {
         for(int i=0;i<NUM_LEDS_PER_STRIP;i++)
         {
             
-            driver.setPixel((i+off)%NUM_LEDS_PER_STRIP+NUM_LEDS_PER_STRIP*j,(NUM_LEDS_PER_STRIP-i)*255/NUM_LEDS_PER_STRIP,i*255/NUM_LEDS_PER_STRIP,(((128-i)+255)%255)*255/NUM_LEDS_PER_STRIP);
+            leds[(i+off)%NUM_LEDS_PER_STRIP+NUM_LEDS_PER_STRIP*j]=Pixel((NUM_LEDS_PER_STRIP-i)*255/NUM_LEDS_PER_STRIP,i*255/NUM_LEDS_PER_STRIP,(((128-i)+255)%255)*255/NUM_LEDS_PER_STRIP);
             
-        }
-        for(int i=0;i<(j+1);i++)
-        {
-         // driver.setPixel(i+j*NUM_LEDS_PER_STRIP,255,0,0);
         }
     }
     time2=ESP.getCycleCount();

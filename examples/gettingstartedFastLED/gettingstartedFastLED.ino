@@ -5,9 +5,10 @@
 #define CLOCK_PIN 16
 #define LATCH_PIN 26
 #define NUM_STRIPS 32
+#define USE_FASTLED
 #include "I2SClocklessVirtualLedDriver.h"
 //here we have 3 colors per pixel
-uint8_t leds[NUM_STRIPS*NUM_LEDS_PER_STRIP*3];
+CRGB leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];
 
 int pins[16]={0,2,4,5};
 
@@ -15,7 +16,7 @@ I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
+  driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
     driver.setBrightness(10);
     
 }
