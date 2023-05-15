@@ -602,7 +602,7 @@ public:
             ESP_LOGE(TAG,"Impossible to create interupt allocation");
             return;
         }
-        ESP_LOGD("interupt handler set");
+        ESP_LOGD(TAG,"interupt handler set");
         // -- Create a semaphore to block execution until all the controllers are done
 
         if (I2SClocklessVirtualLedDriver_sem == NULL)
