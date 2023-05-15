@@ -11,12 +11,12 @@ Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];
 
 int pins[16]={0,2,4,5};
 
-//I2SClocklessVirtualLedDriver driver;
+I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
- // driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
-   // driver.setBrightness(10);
+  driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
+    driver.setBrightness(10);
     
 }
 
@@ -35,7 +35,7 @@ void loop() {
         }
     }
     time2=ESP.getCycleCount();
-   // driver.showPixels();
+   driver.showPixels();
     time3=ESP.getCycleCount();
     Serial.printf("Calcul pixel fps:%.2f   showPixels fps:%.2f   Total fps:%.2f \n",(float)240000000/(time2-time1),(float)240000000/(time3-time2),(float)240000000/(time3-time1));
     off++;

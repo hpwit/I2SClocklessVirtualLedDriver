@@ -1688,7 +1688,9 @@ void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
         this->dmaBufferCount = dmaBufferCount;
         setPins(Pinsq, clock_pin, latch_pin);
         i2sInit();
+         ESP_LOGD(TAG,"DMA initiation");
         initDMABuffers();
+        ESP_LOGD(TAG,"End DMA initiation");
         driverInit = true;
          ESP_LOGD(TAG,"driver initiated");
     }
