@@ -571,7 +571,7 @@ ESP_LOGD(TAG,"se2r");
         i2s->clkm_conf.clka_en = 1;
          ESP_LOGD(TAG,"definie clock");
         #ifndef _20_MHZ_CLK
-        rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+       // rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
        #else
         rtc_clk_apll_enable(true, 0, 0, 8, 1); 
         #endif
