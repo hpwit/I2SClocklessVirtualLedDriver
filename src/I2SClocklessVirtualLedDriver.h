@@ -575,6 +575,7 @@ ESP_LOGD(TAG,"se2r");
        #else
         rtc_clk_apll_enable(true, 0, 0, 8, 1); 
         #endif
+        ESP_LOGD(TAG,"definie clock1");
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
         i2s->clkm_conf.clkm_div_b = 0;   //CLOCK_DIVIDER_B;
         i2s->clkm_conf.clkm_div_num = 1; //CLOCK_DIVIDER_N;
@@ -584,6 +585,7 @@ ESP_LOGD(TAG,"se2r");
         i2s->fifo_conf.tx_fifo_mod = 1;  // 16-bit single channel data
         i2s->fifo_conf.tx_data_num = 32; //32; // fifo length
         i2s->fifo_conf.dscr_en = 1;      // fifo will use dma
+        ESP_LOGD(TAG,"definie clock23");
         i2s->sample_rate_conf.tx_bck_div_num = 1;
         i2s->conf1.val = 0;
         i2s->conf1.tx_stop_en = 0;
