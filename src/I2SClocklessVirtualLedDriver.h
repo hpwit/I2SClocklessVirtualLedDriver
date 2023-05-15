@@ -542,7 +542,7 @@ ESP_LOGD(TAG,"se2r");
         i2sReset_FIFO();
         ESP_LOGD(TAG,"se5r");
         i2s->conf.tx_right_first = 0;
-
+ ESP_LOGD(TAG,"se6r");
         // -- Set parallel mode
         i2s->conf2.val = 0;
         i2s->conf2.lcd_en = 1;
@@ -569,6 +569,7 @@ ESP_LOGD(TAG,"se2r");
 #else
         //Serial.println("precise clock");
         i2s->clkm_conf.clka_en = 1;
+         ESP_LOGD(TAG,"definie clock");
         #ifndef _20_MHZ_CLK
         rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
        #else
@@ -587,7 +588,7 @@ ESP_LOGD(TAG,"se2r");
         i2s->conf1.val = 0;
         i2s->conf1.tx_stop_en = 0;
         i2s->conf1.tx_pcm_bypass = 1;
-
+ ESP_LOGD(TAG,"definie clock");
         i2s->conf_chan.val = 0;
         i2s->conf_chan.tx_chan_mod = 1; // Mono mode, with tx_msb_right = 1, everything goes to right-channel
 
