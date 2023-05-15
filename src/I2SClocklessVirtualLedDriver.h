@@ -518,6 +518,7 @@ public:
     }
     void i2sInit()
     {
+         ESP_LOGD(TAG,"se1r");
         int interruptSource;
         if (I2S_DEVICE == 0)
         {
@@ -533,10 +534,13 @@ public:
             interruptSource = ETS_I2S1_INTR_SOURCE;
             i2s_base_pin_index = I2S1O_DATA_OUT0_IDX;
         }
-
+ESP_LOGD(TAG,"se2r");
         i2sReset();
+        ESP_LOGD(TAG,"se3r");
         i2sReset_DMA();
+        ESP_LOGD(TAG,"se4r");
         i2sReset_FIFO();
+        ESP_LOGD(TAG,"se5r");
         i2s->conf.tx_right_first = 0;
 
         // -- Set parallel mode
