@@ -518,7 +518,6 @@ public:
     }
     void i2sInit()
     {
-         ESP_LOGD(TAG,"se1r");
         int interruptSource;
         if (I2S_DEVICE == 0)
         {
@@ -534,15 +533,11 @@ public:
             interruptSource = ETS_I2S1_INTR_SOURCE;
             i2s_base_pin_index = I2S1O_DATA_OUT0_IDX;
         }
-ESP_LOGD(TAG,"se2r");
         i2sReset();
-        ESP_LOGD(TAG,"se3r");
         i2sReset_DMA();
-        ESP_LOGD(TAG,"se4r");
         i2sReset_FIFO();
-        ESP_LOGD(TAG,"se5r");
         i2s->conf.tx_right_first = 0;
- ESP_LOGD(TAG,"se6r");
+
         // -- Set parallel mode
         i2s->conf2.val = 0;
         i2s->conf2.lcd_en = 1;
@@ -568,14 +563,14 @@ ESP_LOGD(TAG,"se2r");
 
 #else
         //Serial.println("precise clock");
-        i2s->clkm_conf.clka_en = 1;
-         ESP_LOGD(TAG,"definie clock");
+        
+       
         #ifndef _20_MHZ_CLK
-       // rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+        rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
        #else
         rtc_clk_apll_enable(true, 0, 0, 8, 1); 
         #endif
-        ESP_LOGD(TAG,"definie clock1");
+        i2s->clkm_conf.clka_en = 1;
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
         i2s->clkm_conf.clkm_div_b = 0;   //CLOCK_DIVIDER_B;
         i2s->clkm_conf.clkm_div_num = 1; //CLOCK_DIVIDER_N;
@@ -585,12 +580,12 @@ ESP_LOGD(TAG,"se2r");
         i2s->fifo_conf.tx_fifo_mod = 1;  // 16-bit single channel data
         i2s->fifo_conf.tx_data_num = 32; //32; // fifo length
         i2s->fifo_conf.dscr_en = 1;      // fifo will use dma
-        ESP_LOGD(TAG,"definie clock23");
+       
         i2s->sample_rate_conf.tx_bck_div_num = 1;
         i2s->conf1.val = 0;
         i2s->conf1.tx_stop_en = 0;
         i2s->conf1.tx_pcm_bypass = 1;
- ESP_LOGD(TAG,"definie clock");
+ 
         i2s->conf_chan.val = 0;
         i2s->conf_chan.tx_chan_mod = 1; // Mono mode, with tx_msb_right = 1, everything goes to right-channel
 
