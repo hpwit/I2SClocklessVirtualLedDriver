@@ -1606,6 +1606,7 @@ void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
         dmaBufferCount = 2;
         linewidth = NUM_LEDS_PER_STRIP;
         this->num_led_per_strip = NUM_LEDS_PER_STRIP;
+         ESP_LOGD(TAG,"offset initiation");
         _offsetDisplay.offsetx = 0;
         _offsetDisplay.offsety = 0;
         _offsetDisplay.rotation=0;
@@ -1686,7 +1687,9 @@ void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
 #endif
         //this->num_strips=num_strips;
         this->dmaBufferCount = dmaBufferCount;
+        ESP_LOGD(TAG,"Pins initiation");
         setPins(Pinsq, clock_pin, latch_pin);
+         ESP_LOGD(TAG,"I2S init");
         i2sInit();
          ESP_LOGD(TAG,"DMA initiation");
         initDMABuffers();
