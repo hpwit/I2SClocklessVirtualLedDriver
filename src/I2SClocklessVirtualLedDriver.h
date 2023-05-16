@@ -570,7 +570,7 @@ public:
         esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
         if (e!=ESP_OK)
         {
-            ESP_LOGE(TAG,"Impossible to create interupt allocation");
+            ESP_LOGE(TAG,"Impossible to create interupt allocatio n");
             return;
         }
         ESP_LOGV(TAG,"interupt handler set");
