@@ -15,11 +15,9 @@ I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-//  driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
-  //  driver.setBrightness(10);
-  ESP_LOGD("yves","qmlsdjlmqsd");
-    rtc_clk_apll_enable(true, 31, 133, 7, 1);
-    ESP_LOGD("yves","qmlsdjlmqsddd");
+  driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
+   driver.setBrightness(10);
+ 
 }
 
 int off=0;
@@ -31,13 +29,13 @@ void loop() {
         
         for(int i=0;i<NUM_LEDS_PER_STRIP;i++)
         {
-            leds[0]=Pixel(0,0,0);
-           // leds[(i+off)%NUM_LEDS_PER_STRIP+NUM_LEDS_PER_STRIP*j]=Pixel((NUM_LEDS_PER_STRIP-i)*255/NUM_LEDS_PER_STRIP,i*255/NUM_LEDS_PER_STRIP,(((128-i)+255)%255)*255/NUM_LEDS_PER_STRIP);
+            
+         leds[(i+off)%NUM_LEDS_PER_STRIP+NUM_LEDS_PER_STRIP*j]=Pixel((NUM_LEDS_PER_STRIP-i)*255/NUM_LEDS_PER_STRIP,i*255/NUM_LEDS_PER_STRIP,(((128-i)+255)%255)*255/NUM_LEDS_PER_STRIP);
             
         }
     }
     time2=ESP.getCycleCount();
-  // driver.showPixels();
+   driver.showPixels();
     time3=ESP.getCycleCount();
     Serial.printf("Calcul pixel fps:%.2f   showPixels fps:%.2f   Total fps:%.2f \n",(float)240000000/(time2-time1),(float)240000000/(time3-time2),(float)240000000/(time3-time1));
     off++;

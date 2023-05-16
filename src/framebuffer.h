@@ -9,7 +9,12 @@ public:
 Pixel * frames[_NB_FRAME];
 uint8_t displayframe;
 uint8_t writingframe;
-frameBuffer(int num_led)
+uint16_t frame_size;
+frameBuffer()
+{
+
+}
+frameBuffer(Pixel * frame,uint16_t size)
 {
     writingframe=0;
     displayframe=0;
@@ -17,9 +22,12 @@ frameBuffer(int num_led)
     * we create the frames
     * to add the logic if the memory is not enough
     */
-    for(int i=0;i<_NB_FRAME;i++)
+   frame_size = size;
+  // printf("size:%d\n",frame_size);
+   frames[0]=frame;
+    for(int i=1;i<_NB_FRAME;i++)
     {
-        frames[i] = (Pixel *)calloc(num_led, sizeof(Pixel));
+        frames[i] = (Pixel *)calloc(frame_size,1);
         if(!frames[i])
          printf("no memoory\n");
     }
@@ -27,17 +35,17 @@ frameBuffer(int num_led)
     
     Pixel &operator[](int i)
     {
-        return *(frames[writingframe]+i);
+        return *(frames[0]+i);
     }
     uint8_t * getFrametoDisplay()
     {
-        uint8_t  * tmp= (uint8_t *)frames[writingframe];
-        switchFrame();
+        uint8_t  * tmp= (uint8_t *)frames[1];
+       memcpy(frames[1],frames[0],frame_size);
         return tmp;
     }
     void switchFrame()
     {
-        writingframe=(writingframe+1)%_NB_FRAME;
+        //writingframe=(writingframe+1)%_NB_FRAME;
        // displayframe=
     }
 
