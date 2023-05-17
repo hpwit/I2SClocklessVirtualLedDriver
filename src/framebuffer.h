@@ -40,7 +40,7 @@ frameBuffer(Pixel * frame,uint16_t size)
     uint8_t * getFrametoDisplay()
     {
         uint8_t  * tmp= (uint8_t *)frames[1];
-       memcpy(frames[1],frames[0],frame_size);
+       memcpy((uint8_t *)frames[1],(uint8_t *)frames[0],frame_size);
         return tmp;
     }
     void switchFrame()
