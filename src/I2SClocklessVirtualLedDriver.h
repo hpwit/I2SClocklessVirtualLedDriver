@@ -343,7 +343,7 @@ public:
     frameBuffer * framebuff;
     bool useFrame=false;
    #ifdef __HARDWARE_MAP
-        uint16_t * _hmap,*_defaulthmap;
+       volatile  uint16_t * _hmap,*_defaulthmap;
        volatile uint16_t * _hmapoff;
            void setHmap( uint16_t * map)
     {
@@ -351,7 +351,7 @@ public:
     }
    
     #ifdef _HARDWARE_SCROLL_MAP
-     uint16_t * _hmapscroll;
+     volatile uint16_t * _hmapscroll;
      //uint16_t * _hmaptmp;
     #endif
 
@@ -564,6 +564,7 @@ public:
         SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
         SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
         */
+      /*
        if(_gI2SClocklessDriver_intr_handle!=NULL)
             esp_intr_free(_gI2SClocklessDriver_intr_handle);
         ESP_LOGV(TAG,"setting interupt handler");
@@ -574,6 +575,8 @@ public:
             return;
         }
         ESP_LOGV(TAG,"interupt handler set");
+
+        */
         // -- Create a semaphore to block execution until all the controllers are done
 
         if (I2SClocklessVirtualLedDriver_sem == NULL)
@@ -669,11 +672,18 @@ public:
                 wasWaitingtofinish = true;
                // ESP_LOGD(TAG, "already displaying... wait");
                 tims=ESP.getCycleCount();
-                const TickType_t xDelay = __delay ; 
+                //#ifndef _HARDWARE_SCROLL_MAP
+                //const TickType_t xDelay = __delay ; 
+                //#endif
+                //#else
+                const TickType_t xDelay = 60 ; 
+                
+                //#endif
                 xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp,xDelay);
                 ESP_LOGD(TAG, "back after:%.4fms",(float)(ESP.getCycleCount()-tims)/240000);
             
             }
+    isDisplaying=true;
  }
 
 
@@ -725,7 +735,7 @@ void calculateOffsetDisplay(OffsetDisplay offdisp)
         _offsetDisplay = offdisp;
         _hmap=_defaulthmap;
     #ifdef _HARDWARE_SCROLL_MAP
-      calculateMapping2(offdisp);
+     calculateMapping2(offdisp);
        
     
      _hmap= _hmapscroll;
@@ -783,7 +793,7 @@ void showPixels(OffsetDisplay offdisp)
         if(useFrame)
         {
             leds =framebuff->getFrametoDisplay();
-            __displayMode=WAIT;
+            __displayMode=NO_WAIT;
         }
         else
         {
@@ -848,7 +858,8 @@ void showPixels(OffsetDisplay offdisp)
         if(useFrame)
         {
 
-            showPixels(WAIT,framebuff->getFrametoDisplay());
+                        leds =framebuff->getFrametoDisplay();
+            __displayMode=NO_WAIT;
            // __displayMode=WAIT;
         }
         else
@@ -863,7 +874,7 @@ void showPixels(OffsetDisplay offdisp)
 
 void _runShowPixelsOnCore()
 {
-     waitDisplay();
+   
     if (I2SClocklessVirtualLedDriver_returnTaskHandle == 0) {
 
         I2SClocklessVirtualLedDriver_returnTaskHandle = xTaskGetCurrentTaskHandle();
@@ -881,12 +892,18 @@ void _runShowPixelsOnCore()
 
 
 
-void enableShowPixelsOnCore()
+void disableShowPixelsOnCore()
 {
     if(I2SClocklessVirtualLedDriver_dispTaskHandle)
     {
         vTaskDelete(I2SClocklessVirtualLedDriver_dispTaskHandle);
     }
+    if(_gI2SClocklessDriver_intr_handle!=NULL)
+  {
+            esp_intr_free(_gI2SClocklessDriver_intr_handle);
+       
+  }
+  _gI2SClocklessDriver_intr_handle=NULL;
     runCore=0;
     isRunOnCore= false;
 }
@@ -924,10 +941,11 @@ void  __showPixels()
 
     void ___showPixels()
     {
-         if(isRunOnCore)
- {
-  if(_gI2SClocklessDriver_intr_handle!=NULL)
-            esp_intr_free(_gI2SClocklessDriver_intr_handle);
+        
+        
+  if(_gI2SClocklessDriver_intr_handle==NULL)
+  {
+            //esp_intr_free(_gI2SClocklessDriver_intr_handle);
         ESP_LOGV(TAG,"setting interupt handler");
         esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
         if (e!=ESP_OK)
@@ -935,14 +953,18 @@ void  __showPixels()
             ESP_LOGE(TAG,"Impossible to create interupt allocation");
             return;
         }
-        ESP_LOGV(TAG,"interupt handler set");
- }
+        ESP_LOGV(TAG,"interupt handler set on core %d",xPortGetCoreID() );
+  }
+ 
         
 //ESP_LOGD(TAG,"Running on core:%d",xPortGetCoreID() );
 #ifdef __HARDWARE_MAP
+ //ESP_LOGI(TAG,"JJJ");
         if(isOffsetDisplay)
         {
-                  calculateOffsetDisplay(_offsetDisplay);
+           
+                calculateOffsetDisplay(_offsetDisplay);
+               //  _hmap=_defaulthmap;
         }
         isOffsetDisplay = false;
            _hmapoff=_hmap;
@@ -991,7 +1013,7 @@ void  __showPixels()
         }
         else{
         isWaiting = false;
-        isDisplaying = true;
+       // isDisplaying = true;
         }
 
         //vTaskDelay(1/portTICK_PERIOD_MS);
@@ -2400,6 +2422,20 @@ Lines firstPixel[nb_components];
 static void showPixelsTask(void *pvParameters)
 {
     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
+      if(cont->_gI2SClocklessDriver_intr_handle!=NULL)
+  {
+            esp_intr_free(cont->_gI2SClocklessDriver_intr_handle);
+       
+  }
+   ESP_LOGV(TAG,"setting interupt handler");
+        esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, cont, &cont->_gI2SClocklessDriver_intr_handle);
+        if (e!=ESP_OK)
+        {
+            ESP_LOGE(TAG,"Impossible to create interupt allocation");
+            return;
+        }
+       ESP_LOGV(TAG,"interupt handler set on core %d",xPortGetCoreID() );
+  
     for(;;) {
         ulTaskNotifyTake(pdTRUE,portMAX_DELAY);
     cont-> ___showPixels();
