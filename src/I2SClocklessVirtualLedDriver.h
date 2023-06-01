@@ -1885,7 +1885,9 @@ int ledtodisp=driver->ledToDisplay;
 uint8_t *mapg=driver->__green_map;
 uint8_t *mapr=driver->__red_map;
 uint8_t *mapb=driver->__blue_map;
+#ifdef _USE_PALETTE
 uint8_t *palette=driver->palette;
+#endif
 #if nb_components >3
 uint8_t *mapw=driver->__white_map;
 #endif
