@@ -165,8 +165,8 @@
 #include "framebuffer.h"
 typedef union
 {
-    uint8_t bytes[16];
-    uint32_t shorts[4];
+    uint8_t bytes[16*8];
+    uint32_t shorts[16*2];
     //uint32_t raw[2];
 } Lines;
 
@@ -312,6 +312,7 @@ private:
     uint8_t **ledspointerarray;
 };
 */
+  
 class I2SClocklessVirtualLedDriver
 {
 
@@ -327,7 +328,9 @@ class I2SClocklessVirtualLedDriver
     const periph_module_t deviceModule[2] = {PERIPH_I2S0_MODULE, PERIPH_I2S1_MODULE};
 
 public:
+     Lines firstPixel[nb_components];
     i2s_dev_t *i2s;
+    
     uint8_t __green_map[256];
     uint8_t __blue_map[256];
     uint8_t __red_map[256];
@@ -350,19 +353,21 @@ public:
     bool isRunOnCore=false;
     int runCore;
     volatile long tims;
-
+ #if CORE_DEBUG_LEVEL>=4
+ uint32_t _times[NUM_LEDS_PER_STRIP];
+ #endif
     frameBuffer * framebuff;
     bool useFrame=false;
    #ifdef __HARDWARE_MAP
-       volatile  uint16_t * _hmap,*_defaulthmap;
-       volatile uint16_t * _hmapoff;
+         uint16_t * _hmap,*_defaulthmap;
+        uint16_t * _hmapoff;
            void setHmap( uint16_t * map)
     {
         _defaulthmap=map;
     }
    
     #ifdef _HARDWARE_SCROLL_MAP
-     volatile uint16_t * _hmapscroll;
+      uint16_t * _hmapscroll;
      //uint16_t * _hmaptmp;
     #endif
 
@@ -981,7 +986,7 @@ void  __showPixels()
 
     void ___showPixels()
     {
-        
+       // leddt=leds;
         
   if(_gI2SClocklessDriver_intr_handle==NULL)
   {
@@ -1058,6 +1063,14 @@ void  __showPixels()
 
         //vTaskDelay(1/portTICK_PERIOD_MS);
         //delay(1);
+        #if CORE_DEBUG_LEVEL>=4
+        uint32_t total=0;
+        for(int _time=0;_time<NUM_LEDS_PER_STRIP;_time++)
+        {
+            total+=_times[_time];
+        }
+        ESP_LOGV(TAG,"interput time: %d cycles %.2fus",total,(float)total/240/NUM_LEDS_PER_STRIP);
+        #endif
     }
 
     //list of the leds strips
@@ -1212,7 +1225,7 @@ void calculateMapping2(OffsetDisplay off)
         }
     }
 
-_hmapscroll[leddisp]=xr%off.image_width+(yr%off.image_height)*off.image_width;
+_hmapscroll[leddisp]=(xr%off.image_width+(yr%off.image_height)*off.image_width);
         #else
                 #ifdef _ROTATION
                             xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc;
@@ -1476,6 +1489,17 @@ void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
 
         this->leds = leds;
         this->saveleds = leds;
+memset( firstPixel[0].bytes,0,16*8);
+memset( firstPixel[1].bytes,0,16*8);
+memset( firstPixel[2].bytes,0,16*8);
+    firstPixel[0].bytes[16+NBIS2SERIALPINS] = 255;
+    firstPixel[1].bytes[16+NBIS2SERIALPINS] = 255;
+    firstPixel[2].bytes[16+NBIS2SERIALPINS] = 255;
+#if nb_components > 3
+    firstPixel[3].bytes[16+NBIS2SERIALPINS] = 255;
+    
+#endif
+
         //isRunOnCore=false;
         runCore = 3;
 #if HARDWARESPRITES == 1
@@ -1763,7 +1787,7 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 }
 
 
- static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
+ static inline __attribute__((always_inline))  void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 {
 
    uint32_t x, y,t;
@@ -1776,7 +1800,14 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
     cc=CCC;
     ff=FFF;
    ff2=FFF2;
-  // ff2=ff>>4;
+   //ff2=ff>>4;
+   //int vpin=0;
+  //while(vpin++<8)
+  //for(int vpin=0;vpin<2;vpin++)
+  //{
+
+   // for(int col=0;col<nb_components;col++)
+   // {
     y = *(unsigned int *)(A);
 #if NBIS2SERIALPINS >= 4
     x = *(unsigned int *)(A + 4);
@@ -1843,8 +1874,8 @@ t = (x & ff) | ((y >> 4) & ff2);
     y1 = ((x1 << 4) & ff) | (y1 & ff2);
     x1 = t;
    #else
-      x1 = ((y1 >> 4) & FF2);
-      y1 = (y1 & FF2);
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
  #endif
   #endif
 
@@ -1871,20 +1902,711 @@ t = (x & ff) | ((y >> 4) & ff2);
     *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
  
      #endif
+     B+=2;
+     A+=16;
+
+      y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+     B+=2;
+     A+=16;
+
+//******
+y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+     B+=2;
+     A+=16;
+
+      y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+     B+=2;
+     A+=16;
+
+
+//*************
+
+
+y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+     B+=2;
+     A+=16;
+
+      y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+     B+=2;
+     A+=16;
+
+//******
+y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+     B+=2;
+     A+=16;
+
+      y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+   x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+    #if NBIS2SERIALPINS >= 12
+          x1 = *(unsigned int *)(A + 12);
+      #else
+         x1 = 0;
+      #endif
+
+#endif
+
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+ 
+
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+ #else
+    x = ((y >> 4) & ff2);
+    y =  (y & ff2);
+  
+ 
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+   #else
+      x1 = ((y1 >> 4) & ff2);
+      y1 = (y1 & ff2);
+ #endif
+  #endif
+
+  
+#if NBIS2SERIALPINS >= 8
+
+    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+   #else
+
+    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
+    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
+    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
+    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
+    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
+    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
+    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
+    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
+ 
+     #endif
+   //  B+=370;
+    // A+=16;
+ // }
 }
 
 
-
+//static  Lines firstPixel[nb_components];
 //static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
-static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
+static inline __attribute__((always_inline))  void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
 
+#if CORE_DEBUG_LEVEL>=4
+driver->_times[driver->ledToDisplay]=ESP.getCycleCount();
+#endif
 uint8_t *ledt=driver->leds;
 uint16_t *buff=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
 int ledtodisp=driver->ledToDisplay;
 uint8_t *mapg=driver->__green_map;
 uint8_t *mapr=driver->__red_map;
-uint8_t *mapb=driver->__blue_map;
+//uint8_t *mapb=driver->__blue_map;
 #ifdef _USE_PALETTE
 uint8_t *palette=driver->palette;
 #endif
@@ -1896,610 +2618,147 @@ uint8_t *r_map= driver->r_map;
 uint8_t *g_map = driver->g_map;
 uint8_t *b_map=driver->b_map;
 #endif
-
-
+Lines *firstPixel=driver->firstPixel;
+ //uint16_t *hmaplocal=driver->_hmapoff;
+/*
 Lines firstPixel[nb_components];
+//memset( firstPixel,0,16*8*3);
+memset( firstPixel[0].bytes,0,16*8);
+memset( firstPixel[1].bytes,0,16*8);
+memset( firstPixel[2].bytes,0,16*8);
+    firstPixel[0].bytes[16+NBIS2SERIALPINS] = 255;
+    firstPixel[1].bytes[16+NBIS2SERIALPINS] = 255;
+    firstPixel[2].bytes[16+NBIS2SERIALPINS] = 255;
+#if nb_components > 3
+    firstPixel[3].bytes[16+NBIS2SERIALPINS] = 255;
+    
+#endif
+*/
+
+
  #ifdef _LEDMAPPING
-    uint16_t led_tmp=ledtodisp;
+  #ifdef __SOFTWARE_MAP
+    uint16_t _led_tmp=ledtodisp;
+    uint16_t led_tmp;
+    #endif
  #endif
-uint8_t * poli_b;
-     #ifdef _LEDMAPPING
-        //#ifdef __SOFTWARE_MAP
-            uint8_t *poli ;
+uint8_t * poli_b,* poli,*_poli;
+
         //#endif
-   #else
-    uint8_t *poli = ledt + ledtodisp * _palette_size;
+   #ifndef _LEDMAPPING
+        _poli = driver->leds+ ledtodisp * _palette_size;
+       // driver->leddt+=_palette_size;
     #endif
     buff += OFFSET;
     //jump en deux
-    #ifdef _LEDMAPPING
-        led_tmp+=NUM_LEDS_PER_STRIP;
-    #else
-      poli += NUM_LEDS_PER_STRIP * _palette_size;
-    #endif
 
 
-    
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+
+    //.for()
+
+    for(int pin74HC595=0;pin74HC595<8;pin74HC595++)
     {
+       
          #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
+          #ifdef __SOFTWARE_MAP
+                led_tmp=_led_tmp;
+         #endif
 
-
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
-    }
-
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-
-    //on revient strip 1
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF3_MAP;
-    #else
-        poli -= I2S_OFF3;
-    #endif
-
-    buff++;
-
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
-    }
-    firstPixel[0].bytes[NBIS2SERIALPINS] = 255;
-    firstPixel[1].bytes[NBIS2SERIALPINS] = 255;
-    firstPixel[2].bytes[NBIS2SERIALPINS] = 255;
-#if nb_components > 3
-    firstPixel[3].bytes[NBIS2SERIALPINS] = 255;
-#endif
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-
-    //on va en strip 4
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF4_MAP;
-    #else
-    poli -= I2S_OFF4;
-    #endif
-
-    buff++;
-
-    firstPixel[0].bytes[NBIS2SERIALPINS] = 0;
-    firstPixel[1].bytes[NBIS2SERIALPINS] = 0;
-    firstPixel[2].bytes[NBIS2SERIALPINS] = 0;
-#if nb_components > 3
-    firstPixel[3].bytes[NBIS2SERIALPINS] = 0;
-#endif
-
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-           #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
-    }
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip3
-
-    #ifdef _LEDMAPPING
-        led_tmp-= I2S_OFF3_MAP;
-    #else
-    poli -= I2S_OFF3;
-    #endif
-    buff++;
-
- 
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        
-            #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-
-    }
-
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip6
-    #ifdef _LEDMAPPING
-     led_tmp-=I2S_OFF4_MAP;
-    #else
-    poli -= I2S_OFF4;
-    #endif
-    buff++;
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
-    }
-
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip5
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF3_MAP;
-    #else
-    poli -= I2S_OFF3;
-    #endif
-    buff++;
-
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-    }
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip8
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF4_MAP;
-    #else
-    poli -= I2S_OFF4;
-    
-    #endif
-    buff++;
-
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-            #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-
-    }
-
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip7
-    #ifdef _LEDMAPPING
-    led_tmp-=I2S_OFF3_MAP;    
-    #else
-    poli -= I2S_OFF3;
-    #endif
-    buff++;
-  
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * _palette_size;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*_palette_size;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-#ifdef _USE_PALETTE
-    poli_b=palette+*(poli)*nb_components;
- #else
-    poli_b=poli;
-#endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli_b + 2)];
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli_b + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli_b )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli_b + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli_b + 3)];
-#endif
-
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
+         #else
+             poli=_poli;
+         #endif
          #ifdef __HARDWARE_MAP
+         int pin=(pin74HC595 )<<4;
+         #else
+        int pin=(pin74HC595^1 )<<4;
+        #endif
+    for (int vpin = 0; vpin < NBIS2SERIALPINS; vpin++)
+    {
+         #ifdef _LEDMAPPING
+            #ifdef __SOFTWARE_MAP
+                poli = ledt + driver->mapLed(led_tmp) * _palette_size;
+            #endif
+            #ifdef __HARDWARE_MAP
+                #ifdef HARDWARE_SCROLL
+                   poli =ledt + driver->remap( *(driver->_hmapoff),offdisp)*_palette_size;
+                #else
+                #ifdef _HARDWARE_SCROLL_MAP
+                 poli = ledt + *(driver->_hmapoff)*_palette_size;
+                 #else
+                poli = ledt + *(driver->_hmapoff);
+                 #endif
+               
+                 #endif
+            #endif
+            #ifdef __HARDWARE_MAP_PROGMEM
+                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
+            #endif
+        #endif
+
+
+#ifdef _USE_PALETTE
+    poli_b=palette+*(poli)*nb_components;
+ #else
+    poli_b=poli;
+#endif
+
+        #if STATICCOLOR == 1
+        
+        firstPixel[p_g].bytes[pin+vpin] = mapg[*(poli_b + 1)];
+        firstPixel[p_r].bytes[pin+vpin] = mapr[*(poli_b)];
+        firstPixel[p_b].bytes[pin+vpin] = mapg[*(poli_b + 2)];
+
+        #else
+        firstPixel[g_map[8 * vpin]].bytes[pin+vpin] = mapg[*(poli_b + 1)];
+        firstPixel[r_map[8 * vpin]].bytes[pin+vpin] = mapr[*(poli_b )];
+        firstPixel[b_map[8 * vpin]].bytes[pin+vpin] = mapb[*(poli_b + 2)];
+        #endif
+#if nb_components > 3
+        firstPixel[3].bytes[pin+vpin] = mapw[*(poli_b + 3)];
+#endif
+       // pin++;
+ #ifdef _LEDMAPPING
+            #ifdef __SOFTWARE_MAP
+                led_tmp+=I2S_OFF_MAP;
+            #endif
+                    #ifdef __HARDWARE_MAP
     driver->_hmapoff++;
 #endif
+        #else
+         poli += I2S_OFF;
+        #endif
+
         
     }
+    #ifdef _LEDMAPPING
+            #ifdef __SOFTWARE_MAP
+        _led_tmp+=NUM_LEDS_PER_STRIP;
+    #endif
+    #else
+     _poli+=NUM_LEDS_PER_STRIP*_palette_size;
+    #endif
+        
+
+   
+}
+
     transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+
+ transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
     transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
 #if nb_components > 3
     transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
 #endif
 
+
+    
+
+
+
+   
+#if CORE_DEBUG_LEVEL>=4
+driver->_times[driver->ledToDisplay]=ESP.getCycleCount()-driver->_times[driver->ledToDisplay];
+#endif
 }
 
 
