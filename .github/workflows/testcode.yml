@@ -22,7 +22,7 @@ jobs:
          # - rp2040:rp2040:rpipico
 
         include:
-          - arduino-boards-fqbn: esp32:esp32:esp32:DebugLevel=debug,FlashMode=dio,FlashFreq=80,FlashSize=4M
+          - arduino-boards-fqbn: esp32:esp32:esp32:DebugLevel=verbose,FlashMode=dio,FlashFreq=80,FlashSize=4M
             platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
             sketch-names: gettingstarted.ino # Comma separated list of sketch names (no path required) or patterns to use in build
             board-name: esp32
@@ -54,19 +54,4 @@ jobs:
           #build-properties: ${{ toJson(matrix.build-properties) }}
           #extra-arduino-cli-args: ${{ matrix.extra-arduino-cli-args }}
 
-###
-  
 
-      - name: Run ESP32 project in QEmu
-        if: matrix.board-name == 'esp32'
-        uses: tobozo/esp32-qemu-sim@main
-        with:
-          # Set the build folder and file names for esp32-qemu-sim
-          debug: true
-          qemu-timeout: 999
-          build-folder: examples/gettingstarted/build
-          partitions-csv: partitions.csv
-          firmware-bin: gettingstarted.ino.bin
-          bootloader-bin: gettingstarted.ino.bootloader.bin
-          partitions-bin: gettingstarted.ino.partitions.bin
-         # spiffs-bin: Test_tar_gz_tgz.ino.spiffs.bin
