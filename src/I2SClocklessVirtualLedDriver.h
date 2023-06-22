@@ -3151,7 +3151,7 @@ uint8_t * poli_b,* poli,*_poli;
 
         //#endif
    #ifndef _LEDMAPPING
-        _poli = driver->leds+ ledtodisp * _palette_size;
+        _poli = ledt+ ledtodisp * _palette_size;
        // driver->leddt+=_palette_size;
     #endif
     buff += OFFSET;
@@ -3196,7 +3196,7 @@ uint8_t * poli_b,* poli,*_poli;
                  #endif
             #endif
             #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
+                 poli = ledt + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
             #endif
         #endif
 
