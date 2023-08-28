@@ -128,6 +128,12 @@
 #define FFF (0xF0F0F0F0L)
 #define FFF2 (0xF0F0F0FL)
 
+//this below is only the the ws281X if you need more time then you are able to extend the size of the buffer
+#ifndef _DMA_EXTENSTION
+#define _DMA_EXTENSTION 0
+#endif
+
+
 #ifndef __NB_DMA_BUFFER
 #define __NB_DMA_BUFFER 2
 #endif
@@ -172,6 +178,8 @@
 #define _LEDMAPPING
 #endif
 
+#define _SOFT_MAP_CALC
+
 #ifdef USE_PIXELSLIB
 #include "pixelslib.h"
 #else
@@ -184,7 +192,15 @@
 
 #define __delay (((NUM_LEDS_PER_STRIP * 125 * 8 * nb_components) /100000) +1 )
 
+
+#define _MAX_VALUE 3000
+
 #include "framebuffer.h"
+
+uint16_t __default__mapping(uint16_t pos)
+{
+    return pos;
+}
 typedef union
 {
     uint8_t bytes[16*8]; //16*8
@@ -401,8 +417,24 @@ public:
  inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
   {
      mapLed = newMapLed;
+     ESP_LOGD(TAG,"calculate mapping");
+     calculateMapping(_defaultOffsetDisplay);
+     ESP_LOGD(TAG," mapping done");
   }
 
+#endif
+
+#ifdef _FUNCTION_TRANSPOSE
+ Pixel (*pixelCalc)(uint16_t led,int pin,int virtualpin);
+
+
+  void setPixelCalc(Pixel (*newPixelCalc)(uint16_t led,int pin,int virtualpin))
+  {
+     pixelCalc = newPixelCalc;
+     ESP_LOGD(TAG,"calculate mapping");
+    // calculateMapping(_defaultOffsetDisplay);
+     ESP_LOGD(TAG," mapping done");
+  }
 #endif
 
 /*
@@ -637,7 +669,7 @@ public:
     {
         for(int num_buff=0;num_buff<__NB_DMA_BUFFER+2;num_buff++)
         {
-            DMABuffersTampon[num_buff] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2); 
+            DMABuffersTampon[num_buff] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2+_DMA_EXTENSTION*2); 
             putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
         }//the buffers for the
        // DMABuffersTampon[1] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2);
@@ -740,20 +772,20 @@ void setPalette(uint8_t * pal)
 void calculateOffsetDisplay(OffsetDisplay offdisp)
 {
     #ifdef __HARDWARE_MAP
-                if(offdisp.image_width==0 or offdisp.image_width==30000  )
+                if(offdisp.image_width==0 or offdisp.image_width==_MAX_VALUE  )
         {
             offdisp.image_width=offdisp.panel_width;
         }
-                if(offdisp.image_height==0 or offdisp.image_height==30000)
+                if(offdisp.image_height==0 or offdisp.image_height==_MAX_VALUE)
         {
             offdisp.image_height=offdisp.panel_height;
         }
-        if(offdisp.window_width==0 or offdisp.window_width==30000)
+        if(offdisp.window_width==0 or offdisp.window_width==_MAX_VALUE)
         {
 
             offdisp.window_width=offdisp.image_width;
         }
-                if(offdisp.window_height==0 or offdisp.window_height==30000)
+                if(offdisp.window_height==0 or offdisp.window_height==_MAX_VALUE)
         {
             offdisp.window_height=offdisp.image_height;
         }
@@ -921,6 +953,11 @@ void showPixels(OffsetDisplay offdisp)
         {
 
                         leds =framebuff->getFrametoDisplay();
+                        if(leds==NULL)
+                        {
+                                 ESP_LOGD(TAG,"no buffer");
+                                 return;
+                        }
             __displayMode=NO_WAIT;
            // __displayMode=WAIT;
         }
@@ -1114,11 +1151,18 @@ void  __showPixels()
         //delay(1);
         #if CORE_DEBUG_LEVEL>=4
         uint32_t total=0;
+        int _min,_max;
+       _max=-1;
+        _min=30*240;
         for(int _time=0;_time<NUM_LEDS_PER_STRIP;_time++)
         {
+            if(_times[_time]>(26*240))
+                _max++;
+            if(_min>_times[_time])
+                _min=_times[_time];
             total+=_times[_time];
         }
-        ESP_LOGV(TAG,"interput time: %d cycles %.2fus",total,(float)total/240/NUM_LEDS_PER_STRIP);
+        ESP_LOGV(TAG,"interupt time:%d cycles %.2fus %%interuptime > 25us:%.2f%%",total/NUM_LEDS_PER_STRIP,(float)total/240/NUM_LEDS_PER_STRIP,100*(float)_max/NUM_LEDS_PER_STRIP);
         #endif
     }
 
@@ -1233,12 +1277,16 @@ void calculateMapping2(OffsetDisplay off)
 */
 void calculateMapping2(OffsetDisplay off)
 {
+    #if CORE_DEBUG_LEVEL>=4
+long time1=ESP.getCycleCount();
+#endif
         int xr,yr;//,newx,newy;
             if(!_hmapscroll)
     {
       ESP_LOGE(TAG, "No more memory\n");
         return;
     }
+    uint16_t *map=_defaulthmap;
     for(uint16_t leddisp=0;leddisp<NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8;leddisp++)
          {
             int xe=(_defaulthmap[leddisp] % off.panel_width);//+off._offx);//%off.window_width;
@@ -1308,6 +1356,10 @@ _hmapscroll[leddisp]=(xr%off.image_width+(yr%off.image_height)*off.image_width);
 
         #endif
          }
+                 #if CORE_DEBUG_LEVEL>=4
+ time1=ESP.getCycleCount()-time1;
+ ESP_LOGV(TAG,"mapping calculation %.2fus",(float)time1/240);
+ #endif
 }
 #endif
 void calculateMapping(OffsetDisplay off)
@@ -1517,12 +1569,12 @@ void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
         _offsetDisplay.rotation=0;
         _offsetDisplay._cos=128;
           _offsetDisplay._sin=0;
-       _offsetDisplay.panel_width = 30000;
-        _offsetDisplay.panel_height = 30000; //maximum
-         _offsetDisplay.image_height = 30000;
-        _offsetDisplay.image_width = 30000; //maximum
-        _offsetDisplay.window_height = 30000;
-        _offsetDisplay.window_width = 30000;
+       _offsetDisplay.panel_width = _MAX_VALUE;
+        _offsetDisplay.panel_height = _MAX_VALUE; //maximum
+         _offsetDisplay.image_height = _MAX_VALUE;
+        _offsetDisplay.image_width = _MAX_VALUE; //maximum
+        _offsetDisplay.window_height = _MAX_VALUE;
+        _offsetDisplay.window_width = _MAX_VALUE;
         _offsetDisplay._offx=  0;//_offsetDisplay.offsetx + 4 * _offsetDisplay.window_width;
          _offsetDisplay._offy=0;// _offsetDisplay.offsety + 4 * _offsetDisplay.window_height;
       _offsetDisplay.enableLoopx=false;
@@ -1557,6 +1609,7 @@ memset( firstPixel[2].bytes,0,16*8);
 #endif
 
 #ifdef __HARDWARE_MAP
+    
     ESP_LOGD(TAG,"creating map array");
     _defaulthmap=(uint16_t *)malloc(  NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2+2);
     if(!_defaulthmap)
@@ -1565,8 +1618,15 @@ memset( firstPixel[2].bytes,0,16*8);
     }
     else
     {
-        ESP_LOGD(TAG,"calculate mapping");
-        calculateMapping(_defaultOffsetDisplay);
+        if(mapLed==NULL)
+        {
+            ESP_LOGD(TAG,"Using default mapping function");
+            mapLed=__default__mapping;
+        }
+            ESP_LOGD(TAG,"calculate mapping");
+            //calculateOffsetDisplay(_defaultOffsetDisplay);
+            calculateMapping(_defaultOffsetDisplay);
+            ESP_LOGD(TAG," mapping done");
     }
    #ifdef  _HARDWARE_SCROLL_MAP
           _hmapscroll=(uint16_t *)malloc(  NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2+2);
@@ -1599,6 +1659,7 @@ ESP_LOGD(TAG,"semaphore init");
  {
         framebuff=framb;
         useFrame=true;
+         ESP_LOGD(TAG,"Init leds with framebuffer");
         initled(framb->frames[0],  Pinsq,  clock_pin,  latch_pin);
 
  }
@@ -3097,7 +3158,7 @@ t = (x & ff) | ((y >> 4) & ff2);
  // }
 }
 
-
+#ifndef _FUNCTION_TRANSPOSE
 //static  Lines firstPixel[nb_components];
 //static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
 static inline __attribute__((always_inline))  void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
@@ -3111,7 +3172,7 @@ uint16_t *buff=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->bu
 int ledtodisp=driver->ledToDisplay;
 uint8_t *mapg=driver->__green_map;
 uint8_t *mapr=driver->__red_map;
-//uint8_t *mapb=driver->__blue_map;
+uint8_t *mapb=driver->__blue_map;
 #ifdef _USE_PALETTE
 uint8_t *palette=driver->palette;
 #endif
@@ -3211,7 +3272,7 @@ uint8_t * poli_b,* poli,*_poli;
         #ifndef  __HARDWARE_BRIGHTNESS
         firstPixel[p_g].bytes[pin+vpin] = mapg[*(poli_b + 1)];
         firstPixel[p_r].bytes[pin+vpin] = mapr[*(poli_b)];
-        firstPixel[p_b].bytes[pin+vpin] = mapg[*(poli_b + 2)];
+        firstPixel[p_b].bytes[pin+vpin] = mapb[*(poli_b + 2)];
         #else
          firstPixel[p_g].bytes[pin+vpin] = *(poli_b + 1);
         firstPixel[p_r].bytes[pin+vpin] = *(poli_b);
@@ -3220,13 +3281,20 @@ uint8_t * poli_b,* poli,*_poli;
        // memcpy(&firstPixel[p_g].bytes[pin+vpin],poli_b,3);
 
         #else
+        #ifndef  __HARDWARE_BRIGHTNESS
         firstPixel[g_map[8 * vpin]].bytes[pin+vpin] = mapg[*(poli_b + 1)];
         firstPixel[r_map[8 * vpin]].bytes[pin+vpin] = mapr[*(poli_b )];
         firstPixel[b_map[8 * vpin]].bytes[pin+vpin] = mapb[*(poli_b + 2)];
+        #else
+        firstPixel[g_map[8 * vpin]].bytes[pin+vpin] =*(poli_b + 1);
+        firstPixel[r_map[8 * vpin]].bytes[pin+vpin] = *(poli_b );
+        firstPixel[b_map[8 * vpin]].bytes[pin+vpin] = *(poli_b + 2);
+        #endif
         #endif
 #if nb_components > 3
         firstPixel[3].bytes[pin+vpin] = mapw[*(poli_b + 3)];
 #endif
+
        // pin++;
  #ifdef _LEDMAPPING
             #ifdef __SOFTWARE_MAP
@@ -3272,6 +3340,81 @@ driver->_times[driver->ledToDisplay]=ESP.getCycleCount()-driver->_times[driver->
 #endif
 }
 
+
+#else //function instead of reading memory
+static inline __attribute__((always_inline))  void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
+{
+    //printf("jjj\nb");
+    #if CORE_DEBUG_LEVEL>=4
+    driver->_times[driver->ledToDisplay]=ESP.getCycleCount();
+    #endif
+int led_tmp;
+uint8_t *ledt=driver->leds;
+uint16_t *buff=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
+int ledtodisp=driver->ledToDisplay;
+uint8_t *mapg=driver->__green_map;
+uint8_t *mapr=driver->__red_map;
+uint8_t *mapb=driver->__blue_map;
+Lines *firstPixel=driver->firstPixel;
+ #if STATICCOLOR == 0
+uint8_t *r_map= driver->r_map;
+uint8_t *g_map = driver->g_map;
+uint8_t *b_map=driver->b_map;
+#endif
+ buff += OFFSET;
+
+    for(int pin74HC595=0;pin74HC595<8;pin74HC595++)
+    {
+        //led_tmp=ledtodisp;
+        int pin=(pin74HC595^1 )<<4;
+        int vPin=pin74HC595<<4;
+       for (int pinEsp32 = 0; pinEsp32 < NBIS2SERIALPINS; pinEsp32++)
+       {
+           Pixel p=driver->pixelCalc(ledtodisp,pinEsp32,vPin);
+           #if STATICCOLOR == 1
+        #ifndef  __HARDWARE_BRIGHTNESS
+            firstPixel[p_g].bytes[pin+pinEsp32]=mapg[p.raw[1]];
+              firstPixel[p_r].bytes[pin+pinEsp32]=mapr[p.raw[0]];
+               firstPixel[p_b].bytes[pin+pinEsp32]=mapb[p.raw[2]];
+        #else
+            firstPixel[p_g].bytes[pin+pinEsp32]=p.raw[1];
+              firstPixel[p_r].bytes[pin+pinEsp32]=p.raw[0];
+               firstPixel[p_b].bytes[pin+pinEsp32]=p.raw[2];
+        #endif
+       // memcpy(&firstPixel[p_g].bytes[pin+vpin],poli_b,3);
+
+        #else
+        #ifndef  __HARDWARE_BRIGHTNESS
+        firstPixel[g_map[8 * pinEsp32]].bytes[pin+pinEsp32]=mapg[p.raw[1]];
+        firstPixel[r_map[8 * pinEsp32]].bytes[pin+pinEsp32]=mapr[p.raw[0]];
+        firstPixel[b_map[8 * pinEsp32]].bytes[pin+pinEsp32]=mapb[p.raw[2]];
+        #else
+        firstPixel[g_map[8 * pinEsp32]].bytes[pin+pinEsp32]=p.raw[1];
+        firstPixel[r_map[8 * pinEsp32]].bytes[pin+pinEsp32]=p.raw[0];
+        firstPixel[b_map[8 * pinEsp32]].bytes[pin+pinEsp32]=p.raw[2];
+        #endif
+        #endif
+
+
+           // led_tmp+=I2S_OFF_MAP;
+       }
+       //ledtodisp+=NUM_LEDS_PER_STRIP;
+}
+
+    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+
+ transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
+    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
+    #if nb_components > 3
+    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
+#endif
+    #if CORE_DEBUG_LEVEL>=4
+    driver->_times[driver->ledToDisplay]=ESP.getCycleCount()-driver->_times[driver->ledToDisplay];
+    #endif
+
+}
+
+#endif
 
 static void showPixelsTask(void *pvParameters)
 {
