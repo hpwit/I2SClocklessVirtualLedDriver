@@ -14,6 +14,24 @@ frameBuffer()
 {
 
 }
+frameBuffer(uint16_t size)
+{
+    writingframe=0;
+    displayframe=0;
+    /*
+    * we create the frames
+    * to add the logic if the memory is not enough
+    */
+   frame_size = size;
+  // printf("size:%d\n",frame_size);
+   //frames[0]=frame;
+    for(int i=0;i<_NB_FRAME;i++)
+    {
+        frames[i] = (Pixel *)calloc(frame_size*sizeof(Pixel),1);
+        if(!frames[i])
+         printf("no memoory 2\n");
+    }
+}
 frameBuffer(Pixel * frame,uint16_t size)
 {
     writingframe=0;
@@ -27,9 +45,9 @@ frameBuffer(Pixel * frame,uint16_t size)
    frames[0]=frame;
     for(int i=1;i<_NB_FRAME;i++)
     {
-        frames[i] = (Pixel *)calloc(frame_size,1);
+        frames[i] = (Pixel *)calloc(frame_size*sizeof(Pixel),1);
         if(!frames[i])
-         printf("no memoory\n");
+         printf("no memoory 2\n");
     }
 }
     
@@ -39,9 +57,9 @@ frameBuffer(Pixel * frame,uint16_t size)
     }
     uint8_t * getFrametoDisplay()
     {
-        uint8_t  * tmp= (uint8_t *)frames[1];
-       memcpy((uint8_t *)frames[1],(uint8_t *)frames[0],frame_size);
-        return tmp;
+       // uint8_t  * tmp= (uint8_t *)frames[1];
+       memcpy((uint8_t *)frames[1],(uint8_t *)frames[0],frame_size*sizeof(Pixel));
+        return (uint8_t *)frames[1];
     }
     void switchFrame()
     {

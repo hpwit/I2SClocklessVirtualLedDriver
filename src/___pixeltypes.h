@@ -10,7 +10,7 @@
 
 struct Pixel {
     union {
-        uint8_t raw[3];
+        uint8_t raw[4];
         struct 
         {
             uint8_t red;
@@ -133,9 +133,18 @@ inline Pixel (const Pixel& rhs) __attribute__((always_inline))
         blue = (colorcode >>  0) & 0xFF;
         return *this;
     }
-        
+        inline __attribute__((always_inline)) bool operator== ( const Pixel& rhs)
+{
+    return (red == rhs.red) && (green == rhs.green) && (blue == rhs.blue);
+}
+       inline __attribute__((always_inline)) bool operator!= ( const Pixel& rhs)
+{
+    return !((red == rhs.red) && (green == rhs.green) && (blue == rhs.blue));
+}
+
 
 };
+ 
 #endif
 
 enum  class leddirection
