@@ -10,14 +10,16 @@ Pixel * frames[_NB_FRAME];
 uint8_t displayframe;
 uint8_t writingframe;
 uint16_t frame_size;
+bool _framecopy;
 frameBuffer()
 {
-
+    _framecopy=true;
 }
 frameBuffer(uint16_t size)
 {
     writingframe=0;
-    displayframe=0;
+    displayframe=1;
+    _framecopy=false;
     /*
     * we create the frames
     * to add the logic if the memory is not enough
@@ -35,7 +37,8 @@ frameBuffer(uint16_t size)
 frameBuffer(Pixel * frame,uint16_t size)
 {
     writingframe=0;
-    displayframe=0;
+    displayframe=1;
+    _framecopy=false;
     /*
     * we create the frames
     * to add the logic if the memory is not enough
@@ -53,19 +56,31 @@ frameBuffer(Pixel * frame,uint16_t size)
     
     Pixel &operator[](int i)
     {
+        if(_framecopy)
         return *(frames[0]+i);
+        else
+        return *(frames[writingframe]+i);
     }
     uint8_t * getFrametoDisplay()
     {
        // uint8_t  * tmp= (uint8_t *)frames[1];
+       if(_framecopy)
+       {
        memcpy((uint8_t *)frames[1],(uint8_t *)frames[0],frame_size*sizeof(Pixel));
         return (uint8_t *)frames[1];
+       }
+       else
+       {
+        writingframe=(writingframe+1)%2;
+        displayframe=(displayframe+1)%2;
+        return (uint8_t *)frames[displayframe];
+       }
     }
-    void switchFrame()
-    {
-        //writingframe=(writingframe+1)%_NB_FRAME;
-       // displayframe=
-    }
+
+void setCopyFunction(bool copy)
+{
+    _framecopy=copy;
+}
 
 
 

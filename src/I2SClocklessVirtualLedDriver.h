@@ -241,6 +241,7 @@ struct OffsetDisplay
     int _cos;
     int _sin;
     int _offy;
+  
 };
 
 static const char *TAG = "I2SClocklessVirtualLedDriver";
@@ -396,6 +397,10 @@ public:
     bool isRunOnCore = false;
     int runCore;
     volatile long tims;
+        #ifdef _INTERUPTLINE
+        int offsetsx[256];
+        int offsetsy[256];
+    #endif  
 #if CORE_DEBUG_LEVEL >= 4
     uint32_t _times[NUM_LEDS_PER_STRIP];
 #endif
@@ -591,7 +596,7 @@ public:
         //    Base is 80Mhz, so 80/(3+ 7/6) = 19.2Mhz
 
         i2s->clkm_conf.clkm_div_a = 6;   // CLOCK_DIVIDER_A;
-        i2s->clkm_conf.clkm_div_b = 7;   // CLOCK_DIVIDER_B;
+        i2s->clkm_conf.clkm_div_b = 7;   // CLOCK_DIVIDER_B;ƒ◊
         i2s->clkm_conf.clkm_div_num = 3; // CLOCK_DIVIDER_N;
 
 #else
@@ -729,7 +734,7 @@ public:
         if (isDisplaying == true) // and __displayMode==NO_WAIT)
         {
             wasWaitingtofinish = true;
-            const TickType_t xDelay = 60;
+            const TickType_t xDelay = 100;
 
             // #endif
             xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
@@ -763,8 +768,14 @@ public:
         offdisp._offx = -offdisp.offsetx + 30 * offdisp.image_width;
         offdisp._offy = -offdisp.offsety + 30 * offdisp.image_height;
 #else
-        offdisp._offx = -offdisp.offsetx + 30 * offdisp.window_width;
-        offdisp._offy = -offdisp.offsety + 30 * offdisp.window_height;
+if(offdisp.enableLoopx)
+        offdisp._offx = -offdisp.offsetx +  20* offdisp.window_width+offdisp.xc;
+else
+    offdisp._offx = -offdisp.offsetx+offdisp.xc;
+if(offdisp.enableLoopy)
+        offdisp._offy = -offdisp.offsety + 20*offdisp.window_height+offdisp.yc;
+else
+    offdisp._offy = -offdisp.offsety+offdisp.yc;
 #endif
 
         if (offdisp.scallingx < 0.1)
@@ -851,6 +862,27 @@ public:
         __showPixels();
 #endif
     }
+ void showPixelsNoCalcul(OffsetDisplay offdisp)
+    {
+        waitDisplay();
+#ifdef __HARDWARE_MAP
+        _offsetDisplay = offdisp;
+        isOffsetDisplay = false;
+
+        if (useFrame)
+        {
+            leds = framebuff->getFrametoDisplay();
+            __displayMode = NO_WAIT;
+        }
+        else
+        {
+            leds = saveleds;
+            __displayMode = WAIT;
+        }
+
+        __showPixels();
+#endif
+    }    
     void showPixels(displayMode dispmode, uint8_t *newleds, OffsetDisplay offd)
     {
         waitDisplay();
@@ -1036,7 +1068,7 @@ public:
         // ESP_LOGI(TAG,"JJJ");
         if (isOffsetDisplay)
         {
-
+            ESP_LOGV(TAG,"calcualting data");
             calculateOffsetDisplay(_offsetDisplay);
             //  _hmap=_defaulthmap;
         }
@@ -1169,9 +1201,19 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         int xr, yr;                       //,newx,newy;
         int xe = (val % off.panel_width); //+off._offx);//%off.window_width;
         int ye = (val / off.panel_width); //+off._offy);//%off.window_height;
+       
+        #ifdef _INTERUPTLINE
+        if(off.panel_width!=_MAX_VALUE)
+        {
+        //int xee=ye;
+                xe+=offsetsx[ye];
+                ye+=offsetsy[ye];
+        }
+#endif
+        xr = (((xe - off.xc) * off._cos - (ye - off.yc) * off._sin)>>7) + off._offx;
+        yr = (((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) >>7) +  off._offy;
+        
 
-        xr = ((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) / 128 + off.xc + off._offx;
-        yr = ((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) / 128 + off.yc + off._offy;
         //._deltax=(off.yc*off.sin-off.xc*off._cos)/128+off.xc;
         //._deltay=-(off.xc*off._sin+off.yc*off._cos)/128+off.yc;
 
@@ -1216,13 +1258,19 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         int xr, yr;                       //,newx,newy;
         int xe = (val % off.panel_width); //+off._offx);//%off.window_width;
         int ye = (val / off.panel_width); //+off._offy);//%off.window_height;
+            #ifdef _INTERUPTLINE
+        //int xee=xe;
+                xe+=offsetsx[ye];
+                ye+=offsetsy[ye];
+#endif
 #ifdef _ROTATION
-        xr = ((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) / 128 + off.xc;
-        yr = ((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) / 128 + off.yc;
+        xr = (((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) >>7) + off.xc;
+        yr = (((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) >>7) + off.yc;
 #else
         xr = xe; //*off._scallingx/16;
         yr = ye; //*off._scallingy/16;
 #endif
+
 #ifdef _LOOPX
         xr += off._offx;
 #else
@@ -1279,30 +1327,29 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         {
             int xe = (_defaulthmap[leddisp] % off.panel_width); //+off._offx);//%off.window_width;
             int ye = (_defaulthmap[leddisp] / off.panel_width); //+off._offy);//%off.window_height;
+            #ifdef _INTERUPTLINE
+                // int xee=xe;
+                xe-=offsetsx[ye];
+                ye-=offsetsy[ye];
+            #endif
 
 #ifdef _SOFT_MAP_CALC
-            xr = ((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) / 128 + off.xc; //+off._offx;
-            yr = ((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) / 128 + off.yc; //+off._offy;
-            if (off.enableLoopx)
-            {
-                xr += off._offx;
-            }
-            else
-            {
-                xr -= off.offsetx;
+            xr = (((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) >>7) + off._offx;
+            yr = (((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) >>7) + off._offy;
+            
+            if (!off.enableLoopx)
+           {
+               // xr -= off.offsetx;
                 if (xr < 0 or xr >= off.image_width)
                 {
                     _hmapscroll[leddisp] = off.image_width * off.image_height;
                     continue;
                 }
             }
-            if (off.enableLoopy)
+            if (!off.enableLoopy)
             {
-                yr += off._offy;
-            }
-            else
-            {
-                yr -= off.offsety;
+             
+            // yr -= off.offsety;
                 if (yr < 0 or yr >= off.image_height)
                 {
                     _hmapscroll[leddisp] = off.image_width * off.image_height;
@@ -1352,6 +1399,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 #endif
     void calculateMapping(OffsetDisplay off)
     {
+        ESP_LOGD(TAG,"mapclassique");
         if (!_defaulthmap)
         {
             ESP_LOGE(TAG, "No more memory\n");
@@ -1572,6 +1620,14 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
         _defaultOffsetDisplay = _offsetDisplay;
         __defaultDisplayMode = WAIT;
+
+        #ifdef _INTERUPTLINE
+        for(int i=0;i<256;i++)
+        {
+            offsetsx[i]=0;
+            offsetsy[i]=0;      
+        }
+        #endif
 
         this->leds = leds;
         this->saveleds = leds;
@@ -3160,7 +3216,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #endif
 #ifdef __HARDWARE_MAP
 #ifdef HARDWARE_SCROLL
-            poli = ledt + driver->remap(*(driver->_hmapoff), offdisp) * _palette_size;
+            poli = ledt + driver->remap(*(driver->_hmapoff), driver-> _offsetDisplay) * _palette_size;
 #else
 #ifdef _HARDWARE_SCROLL_MAP
             poli = ledt + *(driver->_hmapoff) * _palette_size;
