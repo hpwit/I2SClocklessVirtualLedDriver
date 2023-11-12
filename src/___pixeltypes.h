@@ -116,6 +116,7 @@ inline Pixel &operator= (const CRGB& rhs) __attribute__((always_inline))
         blue = rhs.b;
         return *this;
     }
+
    #endif
 
 inline Pixel (const Pixel& rhs) __attribute__((always_inline))
