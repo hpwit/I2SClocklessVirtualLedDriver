@@ -3030,10 +3030,14 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #endif
     uint8_t *ledt = driver->leds;
     uint16_t *buff = (uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
+    #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_NONE |I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
     int ledtodisp = driver->ledToDisplay;
-    uint8_t *mapg = driver->__green_map;
-    uint8_t *mapr = driver->__red_map;
-    uint8_t *mapb = driver->__blue_map;
+    #endif
+    #ifndef __HARDWARE_BRIGHTNESS
+        uint8_t *mapg = driver->__green_map;
+        uint8_t *mapr = driver->__red_map;
+        uint8_t *mapb = driver->__blue_map;
+    #endif
 #ifdef _USE_PALETTE
     uint8_t *palette = driver->palette;
 #endif
@@ -3047,7 +3051,10 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #endif
     Lines *firstPixel = driver->firstPixel;
 
-    uint8_t *poli_b, *poli, *_poli;
+    uint8_t *poli_b, *poli;
+    #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+     uint8_t   *_poli;
+    #endif
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
 
