@@ -156,26 +156,20 @@
 #define _BRIGHTNES_2 ((8 - __BRIGHTNESS_BIT + 6) * 48)
 #define _BRIGHTNES_1 ((8 - __BRIGHTNESS_BIT + 7) * 48)
 
-
 #define _NB_BIT (_DMA_EXTENSTION * 2 + (NUM_VIRT_PINS + 1) * nb_components * 8 * 3)
-#define _BUFFER_TIMING ( ( _NB_BIT / 19.2) - 4 ) 
-#define _BASE_BUFFER_TIMING (  (  (NUM_VIRT_PINS + 1) * nb_components * 8 * 3 / 19.2) - 4 )
-
-
-
-
+#define _BUFFER_TIMING ((_NB_BIT / 19.2) - 4)
+#define _BASE_BUFFER_TIMING (((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 / 19.2) - 4)
 
 #define I2S_DRIVER_MODE_OPTION_VIRTUAL_PIN 0x100
-#define I2S_DRIVER_MODE_OPTION_CLOCKLESS   0x200
-#define I2S_DRIVER_MODE_OPTION_CLOCKBASED  0x400
-//#define I2S_DRIVER_MODE_OPTION_USE_PALETTE 0x800
+#define I2S_DRIVER_MODE_OPTION_CLOCKLESS 0x200
+#define I2S_DRIVER_MODE_OPTION_CLOCKBASED 0x400
 #define I2S_MAPPING_MODE_OPTION_NONE 0x1
 #define I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION 0x2
 #define I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY 0x4
 #define I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE 0x8
 #define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE 0x20
 #define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY 0x10
-#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY  (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)
 #define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)
 #define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
 #define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
@@ -193,40 +187,9 @@
 #endif
 #define INTERUPT_NUM_LINE_MAX 100
 #define SCALEMAX_BIT 6
-#define SCALEMAX ( 1<<SCALEMAX_BIT)
-/*
-#ifdef HARDWARE_SCROLL
-#define __HARDWARE_S
-#define __HARDWARE_MAP
-#endif
+#define SCALEMAX (1 << SCALEMAX_BIT)
 
-#ifdef _HARDWARE_SCROLL_MAP
-#define __HARDWARE_S
-#define __HARDWARE_MAP
-#endif
-
-#ifdef __HARDWARE_MAP
-#define _LEDMAPPING
-#endif
-#ifdef __SOFTWARE_MAP
-#define _LEDMAPPING
-#endif
-#ifdef __HARDWARE_MAP_PROGMEM
-#define _LEDMAPPING
-#endif
-
-#define _SOFT_MAP_CALC
-*/
-
-#ifdef USE_PIXELSLIB
-#include "pixelslib.h"
-#else
 #include "___pixeltypes.h"
-#endif
-
-#if HARDWARESPRITES == 1
-#include "hardwareSprite.h"
-#endif
 
 #define __delay (((NUM_LEDS_PER_STRIP * 125 * 8 * nb_components) / 100000) + 1)
 
@@ -240,9 +203,8 @@ uint16_t __default__mapping(uint16_t pos)
 }
 typedef union
 {
-    uint8_t bytes[16 * 8]; // 16*8
+    uint8_t bytes[16 * 8];
     uint32_t shorts[16 * 2];
-    // uint32_t raw[2];
 } Lines;
 
 class I2SClocklessVirtualLedDriver;
@@ -271,39 +233,33 @@ struct OffsetDisplay
     long _deltay;
     int _defaultvalue;
     bool isOffsetDisplay;
-
-    // float _cos;
-    // float _sin;
     int _cos;
     int _sin;
     int _offy;
-  
 };
 
-
 typedef struct
-   {
-int xc;
-int yc;
-int _cos;
-int _sin;
-int _offx;
-int _offy;
-int panel_height;
-int panel_width;
-int image_height;
-int image_width;
-bool enableLoopx;
-bool enableLoopy;
-   } __OffsetDisplay; 
+{
+    int xc;
+    int yc;
+    int _cos;
+    int _sin;
+    int _offx;
+    int _offy;
+    int panel_height;
+    int panel_width;
+    int image_height;
+    int image_width;
+    bool enableLoopx;
+    bool enableLoopy;
+    int enableOption;
+} __OffsetDisplay;
 
 static const char *TAG = "I2SClocklessVirtualLedDriver";
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
 static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B);
-// static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map);
+
 static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver);
-// static void IRAM_ATTR loadAndTranspose2(uint8_t *ledt, uint8_t **ledsstrips, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw);
-// static void IRAM_ATTR transpose16x1_noinline22(uint32_t *A, uint8_t *B);
 static TaskHandle_t I2SClocklessVirtualLedDriver_dispTaskHandle = 0;
 static TaskHandle_t I2SClocklessVirtualLedDriver_returnTaskHandle = 0;
 static void showPixelsTask(void *pvParameters);
@@ -328,84 +284,6 @@ enum displayMode
     LOOP_INTERUPT,
 };
 
-/*
-class AllLeds
-{
-
-public:
-    AllLeds() {}
-    void init(uint8_t **ledspointerarraya = NULL)
-    {
-        ledspointerarray = ledspointerarraya;
-    }
-
-    //uint8_t &operator[](uint16_t);
-    uint8_t &operator[](uint16_t i)
-    {
-        uint8_t strip = i / (NUM_LEDS_PER_STRIP * nb_components);
-        uint8_t *offset = ledspointerarray[(strip % 2 == 0) ? strip + 1 : strip - 1] + (i % (NUM_LEDS_PER_STRIP * nb_components));
-        return *(offset);
-    }
-
-private:
-    uint8_t **ledspointerarray;
-};
-*/
-/*
-struct pixel
-{
-    uint8_t raw[nb_components];
-    inline pixel &operator=(const pixel &rhs) __attribute__((always_inline))
-    {
-        raw[0] = rhs.raw[0];
-        raw[1] = rhs.raw[1];
-        raw[2] = rhs.raw[2];
-        return *this;
-    }
-#ifdef USE_FASTLED
-    inline pixel &operator=(const CRGB &rhs) __attribute__((always_inline))
-    {
-        raw[0] = rhs.raw[0];
-        raw[1] = rhs.raw[1];
-        raw[2] = rhs.raw[2];
-        return *this;
-    }
-    inline pixel &operator=(const CHSV &rhs) __attribute__((always_inline))
-    {
-        CRGB temp;
-        hsv2rgb_rainbow(rhs, temp);
-        raw[0] = temp.raw[0];
-        raw[1] = temp.raw[1];
-        raw[2] = temp.raw[2];
-        return *this;
-    }
-#endif
-};
-*/
-/*
-class AllLedsObjects
-{
-
-public:
-    AllLedsObjects() {}
-    void init(uint8_t **ledspointerarraya = NULL)
-    {
-        ledspointerarray = ledspointerarraya;
-    }
-
-    // pixel &operator[](uint16_t);
-    pixel &operator[](uint16_t i)
-    {
-
-        uint8_t strip = i / (NUM_LEDS_PER_STRIP);
-        uint8_t *offset = ledspointerarray[(strip % 2 == 0) ? strip + 1 : strip - 1] + (i % NUM_LEDS_PER_STRIP) * nb_components;
-        return *((pixel *)offset);
-    }
-
-private:
-    uint8_t **ledspointerarray;
-};
-*/
 __OffsetDisplay _internalOffsetDisplay;
 class I2SClocklessVirtualLedDriver
 {
@@ -442,7 +320,7 @@ public:
     // int linewidth;
     float _gammar, _gammab, _gammag, _gammaw;
     OffsetDisplay _offsetDisplay, _defaultOffsetDisplay;
-    
+
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_sem = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semSync = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semDisp = NULL;
@@ -451,20 +329,20 @@ public:
     bool isRunOnCore = false;
     int runCore;
     volatile long tims;
-        #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) >0
-        int _scalingx[INTERUPT_NUM_LINE_MAX*3];
-        int offsetsx[INTERUPT_NUM_LINE_MAX];
-        float scalingx[INTERUPT_NUM_LINE_MAX];
-        float scalingy[INTERUPT_NUM_LINE_MAX];
-    #endif  
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+    int _scalingx[INTERUPT_NUM_LINE_MAX * 3];
+    int offsetsx[INTERUPT_NUM_LINE_MAX];
+    float scalingx[INTERUPT_NUM_LINE_MAX];
+    float scalingy[INTERUPT_NUM_LINE_MAX];
+#endif
 #if CORE_DEBUG_LEVEL >= 4
     uint32_t _times[NUM_LEDS_PER_STRIP];
 #endif
     frameBuffer *framebuff;
     bool useFrame = false;
-        uint16_t *_hmap, *_defaulthmap;
+    uint16_t *_hmap, *_defaulthmap;
     uint16_t *_hmapoff;
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) >0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
 
     void setHmap(uint16_t *map)
     {
@@ -473,26 +351,25 @@ public:
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)
     uint16_t *_hmapscroll;
-    // uint16_t * _hmaptmp;
 #endif
 
 #endif
-#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY|I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE))>0
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
     uint16_t (*mapLed)(uint16_t led);
 
     inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
     {
         mapLed = newMapLed;
         ESP_LOGD(TAG, "calculate mapping");
-         #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) >0
-       calculateDefaultMapping();
-        #endif
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        calculateDefaultMapping();
+#endif
         ESP_LOGD(TAG, " mapping done");
     }
 
 #endif
 
-#if (I2S_MAPPING_MODE &  I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION )>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION) > 0
     Pixel (*pixelCalc)(uint16_t led, int pin, int virtualpin);
 
     void setPixelCalc(Pixel (*newPixelCalc)(uint16_t led, int pin, int virtualpin))
@@ -684,26 +561,7 @@ public:
         i2s->conf_chan.tx_chan_mod = 1; // Mono mode, with tx_msb_right = 1, everything goes to right-channel
 
         i2s->timing.val = 0;
-        // i2s->int_ena.val = 0;
-        /*
-        // -- Allocate i2s interrupt
-        SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ENA_V,1, I2S_OUT_EOF_INT_ENA_S);
-        SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
-        SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
-        */
-        /*
-         if(_gI2SClocklessDriver_intr_handle!=NULL)
-              esp_intr_free(_gI2SClocklessDriver_intr_handle);
-          ESP_LOGV(TAG,"setting interupt handler");
-          esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
-          if (e!=ESP_OK)
-          {
-              ESP_LOGE(TAG,"Impossible to create interupt allocatio n");
-              return;
-          }
-          ESP_LOGV(TAG,"interupt handler set");
 
-          */
         // -- Create a semaphore to block execution until all the controllers are done
 
         if (I2SClocklessVirtualLedDriver_sem == NULL)
@@ -733,7 +591,6 @@ public:
         {
             putdefaultones((uint16_t *)DMABuffersTampon[num_buff]->buffer);
         }
-
     }
 
     void setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue, uint8_t white)
@@ -788,21 +645,17 @@ public:
 
     void waitDisplay()
     {
-        if (isDisplaying == true) // and __displayMode==NO_WAIT)
+        if (isDisplaying == true)
         {
             wasWaitingtofinish = true;
             const TickType_t xDelay = 100;
-
-            // #endif
             xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
-            // ESP_LOGD(TAG, "back after:%.4fms",(float)(ESP.getCycleCount()-tims)/240000);
         }
         isDisplaying = true;
     }
 
     void calculateOffsetDisplay(OffsetDisplay offdisp)
     {
-//#ifdef __HARDWARE_MAP
         if (offdisp.image_width == 0 or offdisp.image_width == _MAX_VALUE)
         {
             offdisp.image_width = offdisp.panel_width;
@@ -820,101 +673,89 @@ public:
         {
             offdisp.window_height = offdisp.image_height;
         }
+        int enableOption = 0;
+        if (offdisp.enableLoopx)
+        {
+            offdisp._offx = -offdisp.offsetx + 10 * offdisp.window_width + offdisp.xc;
+            enableOption += 1;
+        }
+        else
+            offdisp._offx = -offdisp.offsetx + offdisp.xc;
+        if (offdisp.enableLoopy)
+        {
+            offdisp._offy = -offdisp.offsety + 10 * offdisp.window_height + offdisp.yc;
+            enableOption += 2;
+        }
+        else
+            offdisp._offy = -offdisp.offsety + offdisp.yc;
 
-#ifdef _NOCROP
-        offdisp._offx = -offdisp.offsetx + 30 * offdisp.image_width;
-        offdisp._offy = -offdisp.offsety + 30 * offdisp.image_height;
-#else
-if(offdisp.enableLoopx)
-        offdisp._offx = -offdisp.offsetx +  20* offdisp.window_width+offdisp.xc;
-else
-    offdisp._offx = -offdisp.offsetx+offdisp.xc;
-if(offdisp.enableLoopy)
-        offdisp._offy = -offdisp.offsety + 20*offdisp.window_height+offdisp.yc;
-else
-    offdisp._offy = -offdisp.offsety+offdisp.yc;
-#endif
+        _internalOffsetDisplay.enableOption = enableOption;
 
-        if (offdisp.scallingx < 0.1 and offdisp.scallingx >=0)
+        if (offdisp.scallingx < 0.1 and offdisp.scallingx >= 0)
             offdisp.scallingx = 0.1;
-         if (offdisp.scallingx > -0.1 and offdisp.scallingx <0)
-            offdisp.scallingx = -0.1;           
+        if (offdisp.scallingx > -0.1 and offdisp.scallingx < 0)
+            offdisp.scallingx = -0.1;
         if (offdisp.scallingy < 0.1)
             offdisp.scallingy = 0.1;
 
         offdisp._cos = (int)(float)(128 * cos(-offdisp.rotation) / offdisp.scallingx);
 
         offdisp._sin = (int)(float)(128 * sin(-offdisp.rotation) / offdisp.scallingy);
-/*
-        offdisp._scallingx = 16 / offdisp.scallingx;
-        offdisp._scallingy = 16 / offdisp.scallingy;
-        offdisp._deltax = (offdisp.yc * offdisp._sin - offdisp.xc * offdisp._cos) + offdisp.xc * 128;
-        offdisp._deltay = -(offdisp.xc * offdisp._sin + offdisp.yc * offdisp._cos) + offdisp.yc * 128;
-        offdisp._defaultvalue = offdisp.image_width * offdisp.image_height + 1;
-*/
-        // Serial.println(offdisp._cos);
+
         _offsetDisplay = offdisp;
-       // _hmap = _defaulthmap;
-        _internalOffsetDisplay.image_height=offdisp.image_height;
-_internalOffsetDisplay.image_width=offdisp.image_width;
-_internalOffsetDisplay.panel_height=offdisp.panel_height;
-_internalOffsetDisplay.panel_width=offdisp.panel_width;
-_internalOffsetDisplay.xc=offdisp.xc;
-_internalOffsetDisplay.yc=offdisp.yc;
-_internalOffsetDisplay._cos=offdisp._cos;
-_internalOffsetDisplay._sin=offdisp._sin;
-_internalOffsetDisplay._offx=offdisp._offx+offdisp.yc*offdisp._sin/128-offdisp.xc*offdisp._cos/128;
-_internalOffsetDisplay._offy=offdisp._offy-offdisp.yc*offdisp._cos/128-offdisp.xc*offdisp._sin/128;
-_internalOffsetDisplay.enableLoopx=_offsetDisplay.enableLoopx;
-_internalOffsetDisplay.enableLoopy=_offsetDisplay.enableLoopy;
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE )>0
-_scalingx[2]=scalingy[0]*SCALEMAX;
-for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
-{
-    if(abs(scalingx[i])<0.05)
-  {
-          if(scalingx[i]>0)
-              scalingx[i]=0.05;
-            else
-             scalingx[i]=-0.05;
-  }
+        _internalOffsetDisplay.image_height = offdisp.image_height;
+        _internalOffsetDisplay.image_width = offdisp.image_width;
+        _internalOffsetDisplay.panel_height = offdisp.panel_height;
+        _internalOffsetDisplay.panel_width = offdisp.panel_width;
+        _internalOffsetDisplay.xc = offdisp.xc;
+        _internalOffsetDisplay.yc = offdisp.yc;
+        _internalOffsetDisplay._cos = offdisp._cos;
+        _internalOffsetDisplay._sin = offdisp._sin;
+        _internalOffsetDisplay._offx = offdisp._offx + offdisp.yc * offdisp._sin / 128 - offdisp.xc * offdisp._cos / 128;
+        _internalOffsetDisplay._offy = offdisp._offy - offdisp.yc * offdisp._cos / 128 - offdisp.xc * offdisp._sin / 128;
+        _internalOffsetDisplay.enableLoopx = _offsetDisplay.enableLoopx;
+        _internalOffsetDisplay.enableLoopy = _offsetDisplay.enableLoopy;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+        _scalingx[2] = scalingy[0] * SCALEMAX;
+        for (int i = 0; i < INTERUPT_NUM_LINE_MAX; i++)
+        {
+            if (abs(scalingx[i]) < 0.05)
+            {
+                if (scalingx[i] > 0)
+                    scalingx[i] = 0.05;
+                else
+                    scalingx[i] = -0.05;
+            }
+            if (abs(scalingy[i]) < 0.05)
+            {
+                if (scalingy[i] > 0)
+                    scalingy[i] = 0.05;
+                else
+                    scalingy[i] = -0.05;
+            }
+            _scalingx[3 * i] = SCALEMAX / scalingx[i];
+            _scalingx[3 * i + 1] = (-(_internalOffsetDisplay.panel_height = offdisp.panel_width / 2) * SCALEMAX + (_internalOffsetDisplay.panel_height = offdisp.panel_width / 2 + offsetsx[i]) * _scalingx[3 * i]) / SCALEMAX;
 
-      if(abs(scalingy[i])<0.05)
-  {
-          if(scalingy[i]>0)
-              scalingy[i]=0.05;
-            else
-             scalingy[i]=-0.05;
-  }
- _scalingx[3*i]=SCALEMAX/scalingx[i];
-   _scalingx[3*i+1]=(-(_internalOffsetDisplay.panel_height=offdisp.panel_width/2)*SCALEMAX+(_internalOffsetDisplay.panel_height=offdisp.panel_width/2+offsetsx[i])*_scalingx[3*i])/SCALEMAX;
-
-    if(i>=1)
-    {
-        _scalingx[3*i+2]=_scalingx[3*(i-1)+2]+1/scalingy[i]*SCALEMAX;
-    }
-}
+            if (i >= 1)
+            {
+                _scalingx[3 * i + 2] = _scalingx[3 * (i - 1) + 2] + 1 / scalingy[i] * SCALEMAX;
+            }
+        }
 #endif
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)>0
-  
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+
         calculateScrollMapping();
 
-       // _hmap = _hmapscroll;
 #endif
-                                                                                                                                    
-//#endif
-
-
-
     }
 
     void showPixels(displayMode dispmode, OffsetDisplay offdisp)
     {
         waitDisplay();
-#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY))>0
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
         _offsetDisplay = offdisp;
-        isOffsetDisplay =  offdisp.isOffsetDisplay;
+        isOffsetDisplay = offdisp.isOffsetDisplay;
         __displayMode = dispmode;
         if (useFrame)
         {
@@ -932,8 +773,10 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
     {
 
         waitDisplay();
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
-        _hmap = _defaulthmap;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+        _hmapscroll = _defaulthmap;
 #endif
 
         leds = newleds;
@@ -944,7 +787,7 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
     void showPixels(OffsetDisplay offdisp)
     {
         waitDisplay();
-#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY))>0
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
         _offsetDisplay = offdisp;
         isOffsetDisplay = offdisp.isOffsetDisplay;
 
@@ -962,13 +805,13 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
         __showPixels();
 #endif
     }
-    
+
     void showPixels(displayMode dispmode, uint8_t *newleds, OffsetDisplay offd)
     {
         waitDisplay();
-#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY))>0
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
         _offsetDisplay = offd;
-        isOffsetDisplay =  offd.isOffsetDisplay;
+        isOffsetDisplay = offd.isOffsetDisplay;
         __displayMode = dispmode;
         leds = newleds;
         __showPixels();
@@ -980,8 +823,11 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
     {
 
         waitDisplay();
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         _hmap = _defaulthmap;
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+        _hmapscroll = _defaulthmap;
 #endif
         // leds = newleds;
         leds = saveleds;
@@ -992,7 +838,7 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
     void showPixels(uint8_t *newleds, OffsetDisplay offd)
     {
         waitDisplay();
-#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY))>0
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
         _offsetDisplay = offd;
         isOffsetDisplay = offd.isOffsetDisplay;
         __displayMode = WAIT;
@@ -1006,7 +852,10 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
     {
 
         waitDisplay();
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+        _hmapscroll = _defaulthmap;
         _hmap = _defaulthmap;
 #endif
         leds = newleds;
@@ -1018,10 +867,10 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
     void showPixels()
     {
         waitDisplay();
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
-    isOffsetDisplay =false;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        isOffsetDisplay = false;
         _hmapoff = _defaulthmap;
-        _hmapscroll =  _defaulthmap;
+        _hmapscroll = _defaulthmap;
 #endif
         if (useFrame)
         {
@@ -1109,13 +958,8 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
                 ESP_LOGI(TAG, "No running core defined, rexecuting enable");
                 enableShowPixelsOnCore(runCore);
                 vTaskDelay(10);
-                // ___showPixels();
             }
-            // else
-            // {
-            // ESP_LOGI(TAG,"No running on core;%d",runCore);
             _runShowPixelsOnCore();
-            //}
         }
         else
         {
@@ -1125,11 +969,9 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
 
     void ___showPixels()
     {
-        // leddt=leds;
-
         if (_gI2SClocklessDriver_intr_handle == NULL)
         {
-            // esp_intr_free(_gI2SClocklessDriver_intr_handle);
+
             ESP_LOGV(TAG, "setting interupt handler");
             esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
             if (e != ESP_OK)
@@ -1141,28 +983,27 @@ for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
         }
         else
         {
-             //ESP_LOGV(TAG, "Interrupt alreay setup on core");
+            ESP_LOGV(TAG, "Interrupt alreay setup on core");
         }
 
-// ESP_LOGD(TAG,"Running on core:%d",xPortGetCoreID() );
-#if (I2S_MAPPING_MODE & ( I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE))>0
-        //ESP_LOGI(TAG,"JJJ");
+        ESP_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
+
         if (isOffsetDisplay)
         {
-            ESP_LOGV(TAG,"calcualting data");
+            ESP_LOGV(TAG, "calcualting data");
             calculateOffsetDisplay(_offsetDisplay);
-            ESP_LOGV(TAG,"cdone alcualting data");
-            //  _hmap=_defaulthmap;
+            ESP_LOGV(TAG, "cdone alcualting data");
         }
-        
+
         isOffsetDisplay = false;
-        #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
         _hmapoff = _hmapscroll;
-        #endif
+#endif
 
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE )>0
-_hmapoff = _defaulthmap;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE) > 0
+        _hmapoff = _defaulthmap;
 #endif
 
         if (!driverInit)
@@ -1227,38 +1068,35 @@ _hmapoff = _defaulthmap;
 #if CORE_DEBUG_LEVEL >= 4
         uint32_t total = 0;
         uint32_t totalmax = 0;
-        int framenum = 0 ;
+        int framenum = 0;
         int _min, _max;
         int _proposed_dma_extension;
         _max = 0;
         _min = 500 * 240;
-         _nb_frames_displayed++;
+        _nb_frames_displayed++;
         for (int _time = 1; _time < NUM_LEDS_PER_STRIP; _time++)
         {
             if (_times[_time] > (_BUFFER_TIMING * 240))
             {
                 totalmax++;
-                //framenum=_time;
+                // framenum=_time;
             }
-            
+
             if (_min > _times[_time])
                 _min = _times[_time];
             if (_max < _times[_time])
                 _max = _times[_time];
             total += _times[_time];
-            
-           
         }
-        if( _maxtime < _max )
-                _maxtime = _max;
-            if (_max_pixels_out_of_time < totalmax)
-                    _max_pixels_out_of_time = totalmax;
-            if( totalmax >0)
-                _over_frames++;
-        if (_maxtime>_BASE_BUFFER_TIMING * 240 )
+        if (_maxtime < _max)
+            _maxtime = _max;
+        if (_max_pixels_out_of_time < totalmax)
+            _max_pixels_out_of_time = totalmax;
+        if (totalmax > 0)
+            _over_frames++;
+        if (_maxtime > _BASE_BUFFER_TIMING * 240)
         {
-                _proposed_dma_extension=(((float)_maxtime/240+4)*19.2- (NUM_VIRT_PINS + 1) * nb_components * 8 * 3)/2;
-                
+            _proposed_dma_extension = (((float)_maxtime / 240 + 4) * 19.2 - (NUM_VIRT_PINS + 1) * nb_components * 8 * 3) / 2;
         }
         else
         {
@@ -1266,624 +1104,314 @@ _hmapoff = _defaulthmap;
         }
         //\n     -  proposed DMA extension:%d
         ESP_LOGV(TAG, "\nFrame data:\n     - frame number:%d\n     - interupt time min:%0.2fus\n     - interupt time max:%0.2fus\n     - interupt time average:%0.2fus\n     - nb of pixel with interuptime > %0.2fus: %d\n\
-Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of frames with pixels 'out of time':%d\n     - max interuptime %.2fus\n     - max number of pixels out of interuptime in a frame:%d\n     - proposed DMA extension:%d",\
-         _nb_frames_displayed,(float)_min/240,(float)_max/240, (float)total / 240 / (NUM_LEDS_PER_STRIP-1), _BUFFER_TIMING,totalmax,_nb_frames_displayed,_over_frames,(float)_maxtime / 240,_max_pixels_out_of_time,_proposed_dma_extension);
+Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of frames with pixels 'out of time':%d\n     - max interuptime %.2fus\n     - max number of pixels out of interuptime in a frame:%d\n     - proposed DMA extension:%d",
+                 _nb_frames_displayed, (float)_min / 240, (float)_max / 240, (float)total / 240 / (NUM_LEDS_PER_STRIP - 1), _BUFFER_TIMING, totalmax, _nb_frames_displayed, _over_frames, (float)_maxtime / 240, _max_pixels_out_of_time, _proposed_dma_extension);
 #endif
     }
 
-    // list of the leds strips
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+   inline __attribute__((always_inline)) int remapStatic() 
+    {
+        // printf("%d\n",_internalOffsetDisplay.image_width);
+        int ye = (*_hmapoff) / _internalOffsetDisplay.panel_width;
+        int xe = (*_hmapoff) - ye * _internalOffsetDisplay.panel_width;
 
-    /*
-    Calculate the Mapping
-    */
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
 
-//__attribute__((always_inline))  int inline remapStatic(int val)
-//inline __attribute__((always_inline))  uint8_t*  remapStatic()
-#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY ))>0
-inline __attribute__((always_inline))  int  remapStatic()
+        xe = (((xe)*_scalingx[3 * ye]) >> 6) - (_scalingx[3 * ye + 1]);
+        ye = (_scalingx[3 * ye + 2]) >> 6;
+
+#endif
+
+        int xr = (((xe)*_internalOffsetDisplay._cos - (ye)*_internalOffsetDisplay._sin) >> 7) + _internalOffsetDisplay._offx;
+        int yr = (((xe)*_internalOffsetDisplay._sin + (ye)*_internalOffsetDisplay._cos) >> 7) + _internalOffsetDisplay._offy;
+
+switch (_internalOffsetDisplay.enableOption)
 {
-   //printf("%d\n",_internalOffsetDisplay.image_width);
-     int ye=(*_hmapoff)/ _internalOffsetDisplay.panel_width;
-     int xe=(*_hmapoff)-ye*_internalOffsetDisplay.panel_width;
 
-      #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE)>0
+    case 0:
 
-
-  xe=(((xe)*_scalingx[3*ye])>>6)-(_scalingx[3*ye+1]);
-        ye=(_scalingx[3*ye+2])>>6;
-
-
-
-#endif
-       // xr = (((xe - _internalOffsetDisplay.xc) * _internalOffsetDisplay._cos - (ye - _internalOffsetDisplay.yc) * _internalOffsetDisplay._sin)>>7) + _internalOffsetDisplay._offx;
-       // yr = (((xe - _internalOffsetDisplay.xc) * _internalOffsetDisplay._sin + (ye - _internalOffsetDisplay.yc) * _internalOffsetDisplay._cos) >>7) +  _internalOffsetDisplay._offy;
-       int  xr = (((xe ) * _internalOffsetDisplay._cos - (ye)  * _internalOffsetDisplay._sin)>>7) + _internalOffsetDisplay._offx;
-       int  yr = (((xe) * _internalOffsetDisplay._sin + (ye) * _internalOffsetDisplay._cos) >>7) +  _internalOffsetDisplay._offy;    
-
-//printf("%d %d %d\n",xe,ye,xr);
-            if (!_internalOffsetDisplay.enableLoopx)
+    if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
             {
-        if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
-                {
-                    //return  leds +  _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height*_palette_size;
-                    return    _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
-                   // continue;
-                }
-            }
-                        else
-            {
-                 xr=xr % _internalOffsetDisplay.image_width;
-            }
-            
-                //
-            if (!_internalOffsetDisplay.enableLoopy)
-            {
-           if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
-                {
-                    return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
-                    //continue;
-                }
-            }
-            else
-            {
-                 yr=yr % _internalOffsetDisplay.image_height;
-            }
-            
-               //printf("%d %d\n",*_hmapoff,(  xr % _internalOffsetDisplay.image_width + (yr % _internalOffsetDisplay.image_height) * _internalOffsetDisplay.image_width));
-      //  return leds + (  xr % _internalOffsetDisplay.image_width + (yr % _internalOffsetDisplay.image_height) * _internalOffsetDisplay.image_width)*_palette_size;
-        // return  (  xr % _internalOffsetDisplay.image_width + (yr % _internalOffsetDisplay.image_height) * _internalOffsetDisplay.image_width);
-         return  (  xr + (yr ) * _internalOffsetDisplay.image_width);
 
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+                 if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
+            {
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+            return (xr + (yr)*_internalOffsetDisplay.image_width);
+    break;
+case 1:
+     xr = xr % _internalOffsetDisplay.image_width;
+                 if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
+            {
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+            return (xr + (yr)*_internalOffsetDisplay.image_width);
+ break;
+    case 2:
+
+    if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
+            {
+
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+               yr = yr % _internalOffsetDisplay.image_height;
+               return (xr + (yr)*_internalOffsetDisplay.image_width);
+    break;
+   
+    case 3:
+
+ xr = xr % _internalOffsetDisplay.image_width;
+               yr = yr % _internalOffsetDisplay.image_height;
+               return (xr + (yr)*_internalOffsetDisplay.image_width);
+    break;
+
+
+default:
+ return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+    break;
 }
-#endif
-#ifdef _SOFT_MAP_CALC
-    int remap(int val, OffsetDisplay off)
-    {
-        int xr, yr;                       //,newx,newy;
-        int xe = (val % off.panel_width); //+off._offx);//%off.window_width;
-        int ye = (val / off.panel_width); //+off._offy);//%off.window_height;
-       
-        #ifdef _INTERUPTLINE
-        if(off.panel_width!=_MAX_VALUE)
-        {
-        //int xee=ye;
-                xe+=offsetsx[ye];
-                ye+=offsetsy[ye];
-        }
-#endif
-        xr = (((xe - off.xc) * off._cos - (ye - off.yc) * off._sin)>>7) + off._offx;
-        yr = (((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) >>7) +  off._offy;
-        
 
-        //._deltax=(off.yc*off.sin-off.xc*off._cos)/128+off.xc;
-        //._deltay=-(off.xc*off._sin+off.yc*off._cos)/128+off.yc;
 
-        // xr=(xe*off._cos-ye*off._sin)/128+off._deltax;
-        // yr=(xe*off._sin+ye*off._cos)/128+off._deltay;
-        /*
-         }
-         //else
-         {
-             //xr=(xe*off._cos)*20/128/off.scallingx;
-            // yr=(ye*off._cos)*20/128/off.scallingx;
-            xr=xe*off._scallingx/16;
-            yr=ye*off._scallingy/16;
-         }*/
-        /*
-        if(off.enableLoopx)
+/*
+        if ((_internalOffsetDisplay.enableOption & 1))
         {
-            xr+=off._offx;
+            xr = xr % _internalOffsetDisplay.image_width;
+
         }
         else
         {
-            xr-=off.offsetx;
-            if(xr<0 or xr>=off.image_width)
-                return  off.image_width*off.image_height+1;
+                        if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
+            {
+
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
         }
-        if(off.enableLoopy)
+
+    
+        if ((_internalOffsetDisplay.enableOption & 2))
         {
-            yr+=off._offy;
+                        yr = yr % _internalOffsetDisplay.image_height;
+
         }
         else
         {
-            yr-=off.offsety;
-            if(yr<0 or yr>=off.image_height)
-                return  off.image_width*off.image_height+1;
-        }*/
-        return xr % off.image_width + (yr % off.image_height) * off.image_width;
-    } //
-
-#else
-    int remap(int val, OffsetDisplay off)
-    {
-        int xr, yr;                       //,newx,newy;
-        int xe = (val % off.panel_width); //+off._offx);//%off.window_width;
-        int ye = (val / off.panel_width); //+off._offy);//%off.window_height;
-            #ifdef _INTERUPTLINE
-        //int xee=xe;
-                xe+=offsetsx[ye];
-                ye+=offsetsy[ye];
-#endif
-#ifdef _ROTATION
-        xr = (((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) >>7) + off.xc;
-        yr = (((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) >>7) + off.yc;
-#else
-        xr = xe; //*off._scallingx/16;
-        yr = ye; //*off._scallingy/16;
-#endif
-
-#ifdef _LOOPX
-        xr += off._offx;
-#else
-        xr -= off.offsetx;
-        if (xr < 0 or xr >= off.image_width)
-        {
-            return off.image_width * off.image_height + 1;
+            if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
+            {
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
         }
-#endif
-#ifdef _LOOPY
-        yr += off._offy;
-#else
-        yr -= off.offsety;
-        if (yr < 0 or yr >= off.image_height)
-        {
-            return off.image_width * off.image_height + 1;
-        }
-#endif
-        return xr % off.image_width + (yr % off.image_height) * off.image_width;
+
+        return (xr + (yr)*_internalOffsetDisplay.image_width);
+       */
     }
 #endif
 
-
-
-
-
-
-#ifdef __HARDWARE_MAP
-      //   _offsetDisplay = offdisp;
-#ifdef _HARDWARE_SCROLL_MAP
-    /*
-    void calculateMapping2(OffsetDisplay off)
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+    void calculateDefaultMapping()
     {
-        if(!_hmapscroll)
+
+        uint16_t offset2 = 0;
+        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
         {
-          ESP_LOGE(TAG, "No more memory\n");
-            return;
-        }
+            uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
 
-             for(uint16_t leddisp=0;leddisp<NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8;leddisp++)
-             {
-                 _hmapscroll[leddisp]=remap(_defaulthmap[leddisp],off);
-             }
-    }
-    */
-    void calculateMapping2(OffsetDisplay off)
-    {
-#if CORE_DEBUG_LEVEL >= 4
-        long time1 = ESP.getCycleCount();
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
 #endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+        }
+    }
+#endif
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+    void calculateScrollMapping()
+    {
+
         int xr, yr; //,newx,newy;
         if (!_hmapscroll)
         {
             ESP_LOGE(TAG, "No more memory\n");
             return;
         }
-       // uint16_t *map = _defaulthmap;
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        _hmapoff = _defaulthmap;
         for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8; leddisp++)
         {
-            int xe = (_defaulthmap[leddisp] % off.panel_width); //+off._offx);//%off.window_width;
-            int ye = (_defaulthmap[leddisp] / off.panel_width); //+off._offy);//%off.window_height;
-            #ifdef _INTERUPTLINE
-                xe+=offsetsx[ye];
-                ye+=offsetsy[ye];
-            #endif
-
-#ifdef _SOFT_MAP_CALC
-            xr = (((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) >>7) + off._offx;
-            yr = (((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) >>7) + off._offy;
-            
-            if (!off.enableLoopx)
-           {
-               // xr -= off.offsetx;
-                if (xr < 0 or xr >= off.image_width)
-                {
-                    _hmapscroll[leddisp] = off.image_width * off.image_height;
-                    continue;
-                }
-            }
-            else
-            {
-                xr=xr%off.image_width;
-            }
-            if (!off.enableLoopy)
-            {
-             
-            // yr -= off.offsety;
-                if (yr < 0 or yr >= off.image_height)
-                {
-                    _hmapscroll[leddisp] = off.image_width * off.image_height;
-                    continue;
-                }
-            
-                
-            }
-            else
-            {
-                yr=yr % off.image_height;
-            }
-
-           // _hmapscroll[leddisp] = (xr % off.image_width + (yr % off.image_height) * off.image_width);
-            _hmapscroll[leddisp] = xr + yr*off.image_width;
-#else
-#ifdef _ROTATION
-            xr = ((xe - off.xc) * off._cos - (ye - off.yc) * off._sin) / 128 + off.xc;
-            yr = ((xe - off.xc) * off._sin + (ye - off.yc) * off._cos) / 128 + off.yc;
-
-#else
-            xr = xe; //*off._scallingx/16;
-            yr = ye; //*off._scallingy/16;
-#endif
-#ifdef _LOOPX
-            xr += off._offx;
-#else
-            xr -= off.offsetx;
-            if (xr < 0 or xr >= off.image_width)
-            {
-                _hmapscroll[leddisp] = off.image_width * off.image_height;
-                continue;
-            }
-#endif
-#ifdef _LOOPY
-            yr += off._offy;
-#else
-            yr -= off.offsety;
-            if (yr < 0 or yr >= off.image_height)
-            {
-                _hmapscroll[leddisp] = off.image_width * off.image_height;
-                continue;
-            }
-#endif
-            _hmapscroll[leddisp] = xr % off.image_width + (yr % off.image_height) * off.image_width;
-
-#endif
-        }
-#if CORE_DEBUG_LEVEL >= 4
-        time1 = ESP.getCycleCount() - time1;
-        ESP_LOGV(TAG, "mapping calculation %.2fus", (float)time1 / 240);
-#endif
-    }
-#endif
-
-
-    void calculateMapping(OffsetDisplay off)
-    {
-        ESP_LOGD(TAG,"mapclassique");
-        if (!_defaulthmap)
-        {
-            ESP_LOGE(TAG, "No more memory\n");
-            return;
-        }
-        uint16_t offset2 = 0;
-        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
-        {
-            uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
-
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-
-#ifdef __HARDWARE_S
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off);
-
-#else
-                _defaulthmap[offset2] = remap(mapLed(led_tmp), off) * _palette_size;
-#endif
-                led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-        }
-    }
-
-#endif
-
-void calculateDefaultMapping()
-{
-    #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
-  uint16_t offset2 = 0;
-        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
-        {
-            uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
-
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-               for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;                            
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) >0
-               _defaulthmap[offset2]=mapLed(led_tmp);
-               #else
-                _defaulthmap[offset2]=mapLed(led_tmp)*_palette_size;
-               #endif
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-                      
-        }  
-    #endif
-}
-
- #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)>0
-void calculateScrollMapping()
-{
-
-            int xr, yr; //,newx,newy;
-        if (!_hmapscroll)
-        {
-            ESP_LOGE(TAG, "No more memory\n");
-            return;
-        }
-        
-        #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
-        _hmapoff=_defaulthmap;
-        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8; leddisp++)
-        {
-            _hmapscroll[leddisp]=remapStatic()*_palette_size;
+            _hmapscroll[leddisp] = remapStatic() * _palette_size;
             _hmapoff++;
-
-        } 
-        #endif
-        #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)>0
+        }
+#endif
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
 
         uint16_t offset2 = 0;
         uint16_t val;
-        _hmapoff=&val:
-        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
+        _hmapoff = &val : for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
         {
             uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
 
             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
             {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
                 offset2++;
             }
             led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;
-               for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF4_MAP;                            
             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
             {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
-                offset2++;
-            }
-            led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-            {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
                 offset2++;
             }
             led_tmp -= I2S_OFF4_MAP;
             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
             {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
                 offset2++;
             }
             led_tmp -= I2S_OFF3_MAP;
-             for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
             {
-               
-               val=mapLed(led_tmp);
-               _hmapscroll[offset2]=remapStatic()*_palette_size;
-               led_tmp += I2S_OFF_MAP;
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
                 offset2++;
             }
-                      
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
         }
 
-
-        #endif
-}
+#endif
+    }
 #endif
 
 #ifdef USE_FASTLED
@@ -1984,19 +1512,19 @@ void calculateScrollMapping()
         _offsetDisplay.scallingy = 1;
         _offsetDisplay._scallingx = 16;
         _offsetDisplay._scallingy = 16;
-         _offsetDisplay.isOffsetDisplay=true;
+        _offsetDisplay.isOffsetDisplay = true;
 
         _defaultOffsetDisplay = _offsetDisplay;
         __defaultDisplayMode = WAIT;
 
-        #ifdef _INTERUPTLINE
-        /*
-        for(int i=0;i<256;i++)
-        {
-            offsetsx[i]=0;
-            offsetsy[i]=0;      
-        }*/
-        #endif
+#ifdef _INTERUPTLINE
+/*
+for(int i=0;i<256;i++)
+{
+    offsetsx[i]=0;
+    offsetsy[i]=0;
+}*/
+#endif
 
         this->leds = leds;
         this->saveleds = leds;
@@ -2013,12 +1541,8 @@ void calculateScrollMapping()
 
         // isRunOnCore=false;
         runCore = 3;
-#if HARDWARESPRITES == 1
-        // Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
-        target = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
-#endif
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
 
         ESP_LOGD(TAG, "creating map array");
         _defaulthmap = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
@@ -2036,11 +1560,11 @@ void calculateScrollMapping()
             ESP_LOGD(TAG, "calculate mapping");
             calculateDefaultMapping();
             // calculateOffsetDisplay(_defaultOffsetDisplay);
-           // calculateMapping(_defaultOffsetDisplay);
+            // calculateMapping(_defaultOffsetDisplay);
             ESP_LOGD(TAG, " mapping done");
         }
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)>0
-            ESP_LOGD(TAG, "create scroll mapping");
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+        ESP_LOGD(TAG, "create scroll mapping");
         _hmapscroll = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
         if (!_hmapscroll)
         {
@@ -2049,15 +1573,14 @@ void calculateScrollMapping()
 #endif
 #endif
 
-
-        #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) >0
-        for(int i=0;i<INTERUPT_NUM_LINE_MAX;i++)
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+        for (int i = 0; i < INTERUPT_NUM_LINE_MAX; i++)
         {
-         offsetsx[i]=0;
-         scalingx[i]=1;
-        scalingy[i]=1;
+            offsetsx[i] = 0;
+            scalingx[i] = 1;
+            scalingy[i] = 1;
         }
-    #endif  
+#endif
         ESP_LOGD(TAG, "semaphore init");
         if (I2SClocklessVirtualLedDriver_waitDisp == NULL)
         {
@@ -2089,10 +1612,6 @@ void calculateScrollMapping()
     displayMode __displayMode, __defaultDisplayMode;
     volatile int ledToDisplay;
     volatile int ledToDisplay_out;
-    // volatile int ledToDisplay_in[NUM_LEDS_PER_STRIP+10];
-    // volatile int ledToDisplay_inbuffer[NUM_LEDS_PER_STRIP+10];
-    // volatile int ledToDisplay_inbufferfor[NUM_LEDS_PER_STRIP+10];
-    // volatile int oo=0;
     uint8_t *leds, *saveleds;
 
     int dmaBufferCount = 2; // we use two buffers
@@ -2100,12 +1619,10 @@ void calculateScrollMapping()
 
     volatile int num_strips;
     volatile int num_led_per_strip;
-    // int clock_pin;
+
     int brigthness;
 
     int i2s_base_pin_index;
-
-    // int nb_components;
 
     I2SClocklessVirtualLedDriverDMABuffer **DMABuffersTransposed = NULL;
     // buffer array for the regular way
@@ -2335,14 +1852,6 @@ static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinli
     cc = CCC;
     ff = FFF;
     ff2 = FFF2;
-    // ff2=ff>>4;
-    // int vpin=0;
-    // while(vpin++<8)
-    // for(int vpin=0;vpin<2;vpin++)
-    //{
-
-    // for(int col=0;col<nb_components;col++)
-    // {
     y = *(unsigned int *)(A);
 #if NBIS2SERIALPINS >= 4
     x = *(unsigned int *)(A + 4);
@@ -3512,9 +3021,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinli
     // }
 }
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION)==0
-// static  Lines firstPixel[nb_components];
-// static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION) == 0
 static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
 
@@ -3539,44 +3046,14 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
     uint8_t *b_map = driver->b_map;
 #endif
     Lines *firstPixel = driver->firstPixel;
-    // uint16_t *hmaplocal=driver->_hmapoff;
-    /*
-    Lines firstPixel[nb_components];
-    //memset( firstPixel,0,16*8*3);
-    memset( firstPixel[0].bytes,0,16*8);
-    memset( firstPixel[1].bytes,0,16*8);
-    memset( firstPixel[2].bytes,0,16*8);
-        firstPixel[0].bytes[16+NBIS2SERIALPINS] = 255;
-        firstPixel[1].bytes[16+NBIS2SERIALPINS] = 255;
-        firstPixel[2].bytes[16+NBIS2SERIALPINS] = 255;
-    #if nb_components > 3
-        firstPixel[3].bytes[16+NBIS2SERIALPINS] = 255;
 
-    #endif
-    */
-/*
-#ifdef _LEDMAPPING
-#ifdef __SOFTWARE_MAP
-    uint16_t _led_tmp = ledtodisp;
-    uint16_t led_tmp;
-#endif
-#endif
-*/
     uint8_t *poli_b, *poli, *_poli;
 
-    // #endif
-    /*
-#ifndef _LEDMAPPING
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+
     _poli = ledt + ledtodisp * _palette_size;
-    // driver->leddt+=_palette_size;
-#endif
-*/
-
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE)>0
-
- _poli = ledt + ledtodisp * _palette_size;
 #else
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
     uint16_t _led_tmp = ledtodisp;
     uint16_t led_tmp;
 #endif
@@ -3590,52 +3067,48 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
     for (int pin74HC595 = 0; pin74HC595 < 8; pin74HC595++)
     {
 
-#if(I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
         led_tmp = _led_tmp;
 #endif
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
         poli = _poli;
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         int pin = (pin74HC595) << 4;
 #else
         int pin = (pin74HC595 ^ 1) << 4;
 #endif
         for (int vpin = 0; vpin < NBIS2SERIALPINS; vpin++)
         {
-#if (I2S_MAPPING_MODE & 0xFFF) ==I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE
             poli = ledt + driver->mapLed(led_tmp) * _palette_size;
 #endif
-#if (I2S_MAPPING_MODE & 0xFFF) ==I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE
-           poli = ledt + driver->remapStatic() * _palette_size;
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE
+            poli = ledt + driver->remapStatic() * _palette_size;
 #endif
-#if (I2S_MAPPING_MODE & 0xFFF) ==I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
             poli = ledt + *(driver->_hmapoff);
 #endif
-#if (I2S_MAPPING_MODE & 0xFFF) ==I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
-            poli = ledt + *(driver->_hmapoff); 
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+            poli = ledt + *(driver->_hmapoff);
 #endif
-           
-#if (I2S_MAPPING_MODE & 0xFFF) ==I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE
+
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE
             uint16_t val;
-            driver->_hmapoff=&val;
+            driver->_hmapoff = &val;
             val = driver->mapLed(led_tmp);
             poli = ledt + driver->remapStatic() * _palette_size;
 #endif
-#if (I2S_MAPPING_MODE & 0xFFF) ==I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
-            poli = ledt + *(driver->_hmapoff) 
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
+            poli = ledt + *(driver->_hmapoff)
 #endif
 
-
-
 #ifdef _USE_PALETTE
-            poli_b = palette + *(poli)*nb_components;
+                              poli_b = palette + *(poli)*nb_components;
 #else
             poli_b = poli;
 #endif
-
-
 
 #if STATICCOLOR == 1
 #ifndef __HARDWARE_BRIGHTNESS
@@ -3643,22 +3116,12 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
             firstPixel[p_r].bytes[pin + vpin] = mapr[*(poli_b)];
             firstPixel[p_b].bytes[pin + vpin] = mapb[*(poli_b + 2)];
 #else
-/*
-            uint32_t pd=*((uint32_t*) poli_b);
-            firstPixel[p_r].bytes[pin + vpin] = pd;
-            pd=pd>>8;
-            firstPixel[p_g].bytes[pin + vpin] = pd;
-            pd=pd>>8;
-            firstPixel[p_b].bytes[pin + vpin] = pd;
-            */
-            
-            
+
             firstPixel[p_g].bytes[pin + vpin] = *(poli_b + 1);
             firstPixel[p_r].bytes[pin + vpin] = *(poli_b);
             firstPixel[p_b].bytes[pin + vpin] = *(poli_b + 2);
-            
+
 #endif
-            // memcpy(&firstPixel[p_g].bytes[pin+vpin],poli_b,3);
 
 #else
 #ifndef __HARDWARE_BRIGHTNESS
@@ -3676,20 +3139,20 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #endif
 
             // pin++;
-#if(I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
             led_tmp += I2S_OFF_MAP;
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
             driver->_hmapoff++;
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
             poli += I2S_OFF;
 #endif
         }
-#if(I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
         _led_tmp += NUM_LEDS_PER_STRIP;
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE)>0
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
         _poli += NUM_LEDS_PER_STRIP * _palette_size;
 #endif
     }
@@ -3710,7 +3173,6 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #else // function instead of reading memory
 static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
-// printf("jjj\nb");
 #if CORE_DEBUG_LEVEL >= 4
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
 #endif
@@ -3731,8 +3193,8 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 
     for (int pin74HC595 = 0; pin74HC595 < 8; pin74HC595++)
     {
-        // led_tmp=ledtodisp;
-       int pin = (pin74HC595 ^ 1) << 4;
+
+        int pin = (pin74HC595 ^ 1) << 4;
         int vPin = pin74HC595 << 4;
         for (int pinEsp32 = 0; pinEsp32 < NBIS2SERIALPINS; pinEsp32++)
         {
@@ -3747,7 +3209,6 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
             firstPixel[p_r].bytes[pin + pinEsp32] = p.raw[0];
             firstPixel[p_b].bytes[pin + pinEsp32] = p.raw[2];
 #endif
-            // memcpy(&firstPixel[p_g].bytes[pin+vpin],poli_b,3);
 
 #else
 #ifndef __HARDWARE_BRIGHTNESS
@@ -3760,10 +3221,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
             firstPixel[b_map[8 * pinEsp32]].bytes[pin + pinEsp32] = p.raw[2];
 #endif
 #endif
-
-            // led_tmp+=I2S_OFF_MAP;
         }
-        // ledtodisp+=NUM_LEDS_PER_STRIP;
     }
 
     transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
@@ -3800,6 +3258,5 @@ static void showPixelsTask(void *pvParameters)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         cont->___showPixels();
-        // xTaskNotifyGive(I2SClocklessVirtualLedDriver_returnTaskHandle);
     }
 }
