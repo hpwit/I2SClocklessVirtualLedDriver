@@ -1073,7 +1073,6 @@ public:
 #if CORE_DEBUG_LEVEL >= 4
         uint32_t total = 0;
         uint32_t totalmax = 0;
-        int framenum = 0;
         int _min, _max;
         int _proposed_dma_extension;
         _max = 0;
