@@ -542,7 +542,12 @@ public:
         // Serial.println("precise clock");
 
 #ifndef _20_MHZ_CLK
+#if  ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+ rtc_clk_apll_enable(true);
+ rtc_clk_apll_coeff_set(31, 133, 7, 1);
+ #else
         rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+#endif
 #else
         rtc_clk_apll_enable(true, 0, 0, 8, 1);
 #endif
@@ -739,7 +744,7 @@ public:
                     scalingy[i] = -0.05;
             }
             _scalingx[3 * i] = SCALEMAX / scalingx[i];
-            _scalingx[3 * i + 1] = (-(_internalOffsetDisplay.panel_height = offdisp.panel_width / 2) * SCALEMAX + (_internalOffsetDisplay.panel_height = offdisp.panel_width / 2 + offsetsx[i]) * _scalingx[3 * i]) / SCALEMAX;
+            _scalingx[3 * i + 1] = ((- _internalOffsetDisplay.panel_width / 2) * SCALEMAX + ( _internalOffsetDisplay.panel_width / 2 + offsetsx[i]) * _scalingx[3 * i]) / SCALEMAX;
 
             if (i >= 1)
             {
@@ -1073,6 +1078,7 @@ public:
 #if CORE_DEBUG_LEVEL >= 4
         uint32_t total = 0;
         uint32_t totalmax = 0;
+
         int _min, _max;
         int _proposed_dma_extension;
         _max = 0;
@@ -1318,7 +1324,7 @@ default:
     void calculateScrollMapping()
     {
 
-        int xr, yr; //,newx,newy;
+       // int xr, yr; //,newx,newy;
         if (!_hmapscroll)
         {
             ESP_LOGE(TAG, "No more memory\n");
