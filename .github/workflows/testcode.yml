@@ -9,19 +9,11 @@ on:
   pull_request:
 jobs:
   build:
-    name: ${{ matrix.arduino-boards-fqbn }} - test compiling examples
+    name: test compiling examples
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-
-        arduino-boards-fqbn:
-         # - esp8266:esp8266:generic:eesz=4M3M,xtal=80
-          - esp32:esp32:esp32:DebugLevel=debug,FlashMode=dio,FlashFreq=80,FlashSize=4M
-         # - rp2040:rp2040:rpipico
-
-        include:
+     env:
           - arduino-boards-fqbn: esp32:esp32:esp32:DebugLevel=verbose,FlashMode=dio,FlashFreq=80,FlashSize=4M
             platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
             sketch-names: gettingstarted.ino # Comma separated list of sketch names (no path required) or patterns to use in build
@@ -46,10 +38,10 @@ jobs:
       - name: Compile all examples
         uses: ArminJo/arduino-test-compile@v3
         with:
-          arduino-board-fqbn: ${{ matrix.arduino-boards-fqbn }}
-          platform-url: ${{ matrix.platform-url }}
-          required-libraries: ${{ matrix.required-libraries }}
-          sketch-names: ${{ matrix.sketch-names }}
+          arduino-board-fqbn: ${{ env.arduino-boards-fqbn }}
+          platform-url: ${{ env.platform-url }}
+          required-libraries: ${{ env.required-libraries }}
+          sketch-names: ${{ env.sketch-names }}
           set-build-path: true # build in the sketch folder
           #build-properties: ${{ toJson(matrix.build-properties) }}
           #extra-arduino-cli-args: ${{ matrix.extra-arduino-cli-args }}
