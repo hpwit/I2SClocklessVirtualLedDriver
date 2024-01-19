@@ -1,4 +1,4 @@
-[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/workflows/build/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml)
+[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/workflows/testcode/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml)
 
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
