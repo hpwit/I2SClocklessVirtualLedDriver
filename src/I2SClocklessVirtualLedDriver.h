@@ -198,7 +198,7 @@
 
 #define __delay (((NUM_LEDS_PER_STRIP * 125 * 8 * nb_components) / 100000) + 1)
 
-#define _MAX_VALUE 3000
+#define _MAX_VALUE 5000
 
 #include "framebuffer.h"
 
@@ -353,12 +353,13 @@ public:
     {
         _defaulthmap = map;
     }
+#endif
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY| I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE))>0
     uint16_t *_hmapscroll;
 #endif
 
-#endif
+
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
     uint16_t (*mapLed)(uint16_t led);
 
@@ -663,6 +664,7 @@ public:
         }
         isDisplaying = true;
     }
+    
 
     void calculateOffsetDisplay(OffsetDisplay offdisp)
     {
@@ -726,7 +728,6 @@ public:
         _internalOffsetDisplay.enableLoopx = _offsetDisplay.enableLoopx;
         _internalOffsetDisplay.enableLoopy = _offsetDisplay.enableLoopy;
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
-        _scalingx[2] = scalingy[0] * SCALEMAX;
         for (int i = 0; i < INTERUPT_NUM_LINE_MAX; i++)
         {
             if (abs(scalingx[i]) < 0.05)
@@ -753,11 +754,7 @@ public:
         }
 #endif
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
 
-        calculateScrollMapping();
-
-#endif
     }
 
     void showPixels(displayMode dispmode, OffsetDisplay offdisp)
@@ -786,7 +783,9 @@ public:
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         isOffsetDisplay = false;
         _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
         _hmapscroll = _defaulthmap;
+        #endif
 #endif
 
         leds = newleds;
@@ -837,7 +836,9 @@ public:
         _hmap = _defaulthmap;
         isOffsetDisplay = false;
         _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
         _hmapscroll = _defaulthmap;
+        #endif
 #endif
         // leds = newleds;
         leds = saveleds;
@@ -865,7 +866,9 @@ public:
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         isOffsetDisplay = false;
         _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
         _hmapscroll = _defaulthmap;
+        #endif
         _hmap = _defaulthmap;
 #endif
         leds = newleds;
@@ -877,10 +880,14 @@ public:
     void showPixels()
     {
         waitDisplay();
+        
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+
         isOffsetDisplay = false;
         _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
         _hmapscroll = _defaulthmap;
+        #endif
 #endif
         if (useFrame)
         {
@@ -997,12 +1004,20 @@ public:
         }
 
         ESP_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+
+ calculateOffsetDisplay(_offsetDisplay);
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
 
         if (isOffsetDisplay)
         {
             ESP_LOGV(TAG, "calcualting data");
-            calculateOffsetDisplay(_offsetDisplay);
+           
+          //  calculateOffsetDisplay(_offsetDisplay);
+            #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+
+        calculateScrollMapping();
+
+#endif
             ESP_LOGV(TAG, "cdone alcualting data");
         }
 
@@ -1075,12 +1090,13 @@ public:
 
 // vTaskDelay(1/portTICK_PERIOD_MS);
 // delay(1);
-#if CORE_DEBUG_LEVEL >= 4
+#if CORE_DEBUG_LEVEL >= 5
         uint32_t total = 0;
         uint32_t totalmax = 0;
 
         int _min, _max;
         int _proposed_dma_extension;
+        _proposed_dma_extension=0;
         _max = 0;
         _min = 500 * 240;
         _nb_frames_displayed++;
@@ -1340,10 +1356,10 @@ default:
         }
 #endif
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
-
         uint16_t offset2 = 0;
         uint16_t val;
-        _hmapoff = &val : for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
+        _hmapoff = &val ;
+        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
         {
             uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
 
@@ -1352,6 +1368,7 @@ default:
 
                 val = mapLed(led_tmp);
                 _hmapscroll[offset2] = remapStatic() * _palette_size;
+               // printf("%d %d %d\n",led_tmp,val,_hmapscroll[offset2]);
                 led_tmp += I2S_OFF_MAP;
                 offset2++;
             }
@@ -1527,14 +1544,6 @@ default:
         _defaultOffsetDisplay = _offsetDisplay;
         __defaultDisplayMode = WAIT;
 
-#ifdef _INTERUPTLINE
-/*
-for(int i=0;i<256;i++)
-{
-    offsetsx[i]=0;
-    offsetsy[i]=0;
-}*/
-#endif
 
         this->leds = leds;
         this->saveleds = leds;
@@ -1551,7 +1560,15 @@ for(int i=0;i<256;i++)
 
         // isRunOnCore=false;
         runCore = 3;
-
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY |I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE))  > 0        
+            if (mapLed == NULL)
+            {
+                ESP_LOGD(TAG, "Using default mapping function");
+                mapLed = __default__mapping;
+                _offsetDisplay=_defaultOffsetDisplay;
+            }
+                
+#endif
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
 
         ESP_LOGD(TAG, "creating map array");
@@ -1562,17 +1579,14 @@ for(int i=0;i<256;i++)
         }
         else
         {
-            if (mapLed == NULL)
-            {
-                ESP_LOGD(TAG, "Using default mapping function");
-                mapLed = __default__mapping;
-            }
+
             ESP_LOGD(TAG, "calculate mapping");
             calculateDefaultMapping();
             // calculateOffsetDisplay(_defaultOffsetDisplay);
             // calculateMapping(_defaultOffsetDisplay);
             ESP_LOGD(TAG, " mapping done");
         }
+ #endif      
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
         ESP_LOGD(TAG, "create scroll mapping");
         _hmapscroll = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
@@ -1580,14 +1594,16 @@ for(int i=0;i<256;i++)
         {
             Serial.printf("no memory\n");
         }
+
 #endif
-#endif
+ 
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
         for (int i = 0; i < INTERUPT_NUM_LINE_MAX; i++)
         {
             offsetsx[i] = 0;
             scalingx[i] = 1;
+            if(i>0)
             scalingy[i] = 1;
         }
 #endif
@@ -1856,11 +1872,16 @@ static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinli
 #if NBIS2SERIALPINS >= 8
     uint32_t x1, y1;
 #endif
-    uint32_t aa, cc, ff;
+#if NBIS2SERIALPINS >= 4
+    uint32_t ff;
+#endif
+    uint32_t aa, cc;
     uint32_t ff2;
     aa = AAA;
     cc = CCC;
+    #if NBIS2SERIALPINS >= 4
     ff = FFF;
+    #endif
     ff2 = FFF2;
     y = *(unsigned int *)(A);
 #if NBIS2SERIALPINS >= 4
@@ -3035,12 +3056,12 @@ static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinli
 static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
 
-#if CORE_DEBUG_LEVEL >= 4
+#if CORE_DEBUG_LEVEL >= 5
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
 #endif
     uint8_t *ledt = driver->leds;
     uint16_t *buff = (uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
-    #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_NONE |I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
+    #if((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_NONE)
     int ledtodisp = driver->ledToDisplay;
     #endif
     #ifndef __HARDWARE_BRIGHTNESS
@@ -3070,9 +3091,12 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 
     _poli = ledt + ledtodisp * _palette_size;
 #else
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
+
+#if ((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
     uint16_t _led_tmp = ledtodisp;
+    //#if !((I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0)
     uint16_t led_tmp;
+    //#endif
 #endif
 
 #endif
@@ -3084,14 +3108,14 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
     for (int pin74HC595 = 0; pin74HC595 < 8; pin74HC595++)
     {
 
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
+#if ((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
         led_tmp = _led_tmp;
 #endif
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
         poli = _poli;
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
         int pin = (pin74HC595) << 4;
 #else
         int pin = (pin74HC595 ^ 1) << 4;
@@ -3118,7 +3142,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
             poli = ledt + driver->remapStatic() * _palette_size;
 #endif
 #if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
-            poli = ledt + *(driver->_hmapoff)
+            poli = ledt + *(driver->_hmapoff);
 #endif
 
 #ifdef _USE_PALETTE
@@ -3156,17 +3180,30 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #endif
 
             // pin++;
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE
             led_tmp += I2S_OFF_MAP;
 #endif
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE
+            led_tmp += I2S_OFF_MAP;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
             driver->_hmapoff++;
 #endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE
+            driver->_hmapoff++;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+            driver->_hmapoff++;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
+            driver->_hmapoff++;
+#endif
+
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
             poli += I2S_OFF;
 #endif
         }
-#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
+#if  ((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
         _led_tmp += NUM_LEDS_PER_STRIP;
 #endif
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
@@ -3182,7 +3219,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
     transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
 #endif
 
-#if CORE_DEBUG_LEVEL >= 4
+#if CORE_DEBUG_LEVEL >= 5
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount() - driver->_times[driver->ledToDisplay];
 #endif
 }
@@ -3190,7 +3227,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #else // function instead of reading memory
 static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
-#if CORE_DEBUG_LEVEL >= 4
+#if CORE_DEBUG_LEVEL >= 5
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
 #endif
     int led_tmp;
@@ -3248,7 +3285,7 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #if nb_components > 3
     transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
 #endif
-#if CORE_DEBUG_LEVEL >= 4
+#if CORE_DEBUG_LEVEL >= 5
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount() - driver->_times[driver->ledToDisplay];
 #endif
 }

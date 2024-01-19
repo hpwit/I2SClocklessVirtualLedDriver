@@ -23,7 +23,7 @@ void setup() {
 int off=0;
 long time1,time2,time3;
 void loop() {
-    time1=ESP.getCycleCount();
+   HOW_LONG("Calculate array",{
     for(int j=0;j<NUM_STRIPS;j++)
     {
         
@@ -34,10 +34,12 @@ void loop() {
             
         }
     }
-    time2=ESP.getCycleCount();
+   });
+HOW_LONG("ShowPixel",{
    driver.showPixels();
-    time3=ESP.getCycleCount();
-    ESP_LOGI("test","Calcul pixel fps:%.2f   showPixels fps:%.2f   Total fps:%.2f \n",(float)240000000/(time2-time1),(float)240000000/(time3-time2),(float)240000000/(time3-time1));
+});
+
+
     off++;
     
 }

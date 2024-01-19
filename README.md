@@ -1,3 +1,5 @@
+[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/workflows/build/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml)
+
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
 ### What kind of led do you want to drive
