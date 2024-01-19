@@ -10,7 +10,7 @@
 
 struct Pixel {
     union {
-        uint8_t raw[3];
+        uint8_t raw[4];
         struct 
         {
             uint8_t red;
@@ -116,6 +116,7 @@ inline Pixel &operator= (const CRGB& rhs) __attribute__((always_inline))
         blue = rhs.b;
         return *this;
     }
+
    #endif
 
 inline Pixel (const Pixel& rhs) __attribute__((always_inline))
@@ -133,9 +134,18 @@ inline Pixel (const Pixel& rhs) __attribute__((always_inline))
         blue = (colorcode >>  0) & 0xFF;
         return *this;
     }
-        
+        inline __attribute__((always_inline)) bool operator== ( const Pixel& rhs)
+{
+    return (red == rhs.red) && (green == rhs.green) && (blue == rhs.blue);
+}
+       inline __attribute__((always_inline)) bool operator!= ( const Pixel& rhs)
+{
+    return !((red == rhs.red) && (green == rhs.green) && (blue == rhs.blue));
+}
+
 
 };
+ 
 #endif
 
 enum  class leddirection
@@ -326,7 +336,7 @@ class Pixels
     }
     void clear()
     {
-        memset(ledpointer,0,_size*sizeof(Pixel));
+        //memset(ledpointer,0,_size*sizeof(Pixel));
     }
 
     Pixels  createSubset(int start,int length)

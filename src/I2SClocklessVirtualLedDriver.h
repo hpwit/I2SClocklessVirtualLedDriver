@@ -1,6 +1,6 @@
 
 /*
- 
+
  */
 
 #pragma once
@@ -20,9 +20,16 @@
 #include "freertos/semphr.h"
 #include <stdio.h>
 #include <rom/ets_sys.h>
-#include "esp32-hal-log.h"
+// #include "esp32-hal-log.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#include "hal/gpio_ll.h"
+ #include "soc/gpio_struct.h"
+ #include "rom/gpio.h"
+ #endif
+#include "esp_log.h"
 #include <soc/rtc.h>
 #include "math.h"
+#include "helper.h"
 #define I2S_DEVICE 0
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -41,67 +48,48 @@
 #define HARDWARESPRITES 0
 #endif
 
-#ifndef SNAKEPATTERN
-#define SNAKEPATTERN 1
-#endif
-
-#ifndef ALTERNATEPATTERN
-#define ALTERNATEPATTERN 1
-#endif
-
-
-
-#ifdef YVESPANEL
-#define  ENABLE_HARDWARE_SCROLL 
-#endif
-
-
-#ifndef NO_OFFSET
-#define NO_OFFSET 1
-#endif
-
-//to define coleor different per strip
+// to define coleor different per strip
 #ifndef STATICCOLOR
 #define STATICCOLOR 1
 #endif
 
-#ifdef STATIC_COLOR_RGBW
+#ifdef COLOR_RGBW
 #define p_r 1
 #define p_g 0
 #define p_b 2
 #define nb_components 4
 #else
-#ifdef STATIC_COLOR_RGB
+#ifdef COLOR_RGB
 #define p_r 0
 #define p_g 1
 #define p_b 2
 #define nb_components 3
 #else
-#ifdef STATIC_COLOR_RBG
+#ifdef COLOR_RBG
 #define p_r 0
 #define p_g 2
 #define p_b 1
 #define nb_components 3
 #else
-#ifdef STATIC_COLOR_GBR
+#ifdef COLOR_GBR
 #define p_r 2
 #define p_g 0
 #define p_b 1
 #define nb_components 3
 #else
-#ifdef STATIC_COLOR_BGR
+#ifdef COLOR_BGR
 #define p_r 2
 #define p_g 1
 #define p_b 0
 #define nb_components 3
 #else
-#ifdef STATIC_COLOR_BRG
+#ifdef COLOR_BRG
 #define p_r 1
 #define p_g 2
 #define p_b 0
 #define nb_components 3
 #else
-#ifdef STATIC_COLOR_GRB
+#ifdef COLOR_GRB
 #define p_r 1
 #define p_g 0
 #define p_b 2
@@ -118,62 +106,110 @@
 #endif
 #endif
 #endif
+#endif
+
+#ifdef _USE_PALETTE
+#ifndef PALETTE_SIZE
+#define _palette_size 1
+#else
+#define _palette_size PALETTE_SIZE
+#endif
+#else
+#define _palette_size nb_components
 #endif
 
 #define OFFSET (NUM_VIRT_PINS + 1)
-#define I2S_OFF (((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP) * nb_components)
-#define I2S_OFF2 ((I2S_OFF * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP * nb_components))
-#define I2S_OFF3 ((I2S_OFF * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP * nb_components))
-#define I2S_OFF4 ((I2S_OFF * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP * nb_components))
+#define I2S_OFF (((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP) * _palette_size)
+#define I2S_OFF2 ((I2S_OFF * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP * _palette_size))
+#define I2S_OFF3 ((I2S_OFF * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP * _palette_size))
+#define I2S_OFF4 ((I2S_OFF * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP * _palette_size))
 #define I2S_OFF_MAP (((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP))
 #define I2S_OFF2_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP))
 #define I2S_OFF3_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP))
 #define I2S_OFF4_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP))
 #define BUFFOFF ((NBIS2SERIALPINS * 8) - 1)
-#define AA (0x00AA00AAL)
-#define CC (0x0000CCCCL)
-#define FF (0xF0F0F0F0L)
-#define FF2 (0xF0F0F0FL)
+#define AAA (0x00AA00AAL)
+#define CCC (0x0000CCCCL)
+#define FFF (0xF0F0F0F0L)
+#define FFF2 (0xF0F0F0FL)
 
-
-
-#ifdef HARDWARE_SCROLL
-#define __HARDWARE_S
-#define __HARDWARE_MAP
+// this below is only the the ws281X if you need more time then you are able to extend the size of the buffer
+#ifndef _DMA_EXTENSTION
+#define _DMA_EXTENSTION 0
 #endif
 
-#ifdef _HARDWARE_SCROLL_MAP
-#define __HARDWARE_S
-#define __HARDWARE_MAP
+#ifndef __NB_DMA_BUFFER
+#define __NB_DMA_BUFFER 2
 #endif
 
-
-#ifdef __HARDWARE_MAP
-#define _LEDMAPPING
-#endif
-#ifdef __SOFTWARE_MAP
-#define _LEDMAPPING
-#endif
-#ifdef __HARDWARE_MAP_PROGMEM
-#define _LEDMAPPING
+#ifndef __MAX_BRIGTHNESS
+#define __MAX_BRIGTHNESS 255
 #endif
 
-#ifdef USE_PIXELSLIB
-#include "pixelslib.h"
+#ifndef __BRIGHTNESS_BIT
+#define __BRIGHTNESS_BIT 8
 #else
-#include "___pixeltypes.h"
+#define __HARDWARE_BRIGHTNESS
 #endif
 
-#if HARDWARESPRITES == 1
-#include "hardwareSprite.h"
+#define _BRIGHTNES_8 ((8 - __BRIGHTNESS_BIT) * 48)
+#define _BRIGHTNES_7 ((8 - __BRIGHTNESS_BIT + 1) * 48)
+#define _BRIGHTNES_6 ((8 - __BRIGHTNESS_BIT + 2) * 48)
+#define _BRIGHTNES_5 ((8 - __BRIGHTNESS_BIT + 3) * 48)
+#define _BRIGHTNES_4 ((8 - __BRIGHTNESS_BIT + 4) * 48)
+#define _BRIGHTNES_3 ((8 - __BRIGHTNESS_BIT + 5) * 48)
+#define _BRIGHTNES_2 ((8 - __BRIGHTNESS_BIT + 6) * 48)
+#define _BRIGHTNES_1 ((8 - __BRIGHTNESS_BIT + 7) * 48)
+
+#define _NB_BIT (_DMA_EXTENSTION * 2 + (NUM_VIRT_PINS + 1) * nb_components * 8 * 3)
+#define _BUFFER_TIMING ((_NB_BIT / 19.2) - 4)
+#define _BASE_BUFFER_TIMING (((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 / 19.2) - 4)
+
+#define I2S_DRIVER_MODE_OPTION_VIRTUAL_PIN 0x100
+#define I2S_DRIVER_MODE_OPTION_CLOCKLESS 0x200
+#define I2S_DRIVER_MODE_OPTION_CLOCKBASED 0x400
+#define I2S_MAPPING_MODE_OPTION_NONE 0x1
+#define I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION 0x2
+#define I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY 0x4
+#define I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE 0x8
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE 0x20
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY 0x10
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
+
+#define I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+#define I2S_MAPING_MODE_OPTION_MAPPING I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+
+#define I2S_MAPPING_MODE_OPTION_INTERUPT_LINE 0x1000
+
+#ifndef I2S_DRIVER_MODE
+#define I2S_DRIVER_MODE I2S_DRIVER_MODE_OPTION_CLOCKLESS
 #endif
+#ifndef I2S_MAPPING_MODE
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_NONE
+#endif
+#define INTERUPT_NUM_LINE_MAX 100
+#define SCALEMAX_BIT 6
+#define SCALEMAX (1 << SCALEMAX_BIT)
+
+#include "___pixeltypes.h"
+
+#define __delay (((NUM_LEDS_PER_STRIP * 125 * 8 * nb_components) / 100000) + 1)
+
+#define _MAX_VALUE 5000
 
 #include "framebuffer.h"
+
+uint16_t __default__mapping(uint16_t pos)
+{
+    return pos;
+}
 typedef union
 {
-    uint8_t bytes[16];
-    uint32_t shorts[4];
-    //uint32_t raw[2];
+    uint8_t bytes[16 * 8];
+    uint32_t shorts[16 * 2];
 } Lines;
 
 class I2SClocklessVirtualLedDriver;
@@ -196,22 +232,43 @@ struct OffsetDisplay
     bool enableRotation;
     float scallingx;
     float scallingy;
-        int _scallingx;
+    int _scallingx;
     int _scallingy;
-   // float _cos;
-   // float _sin;
-   int _cos;
-   int  _sin;
+    long _deltax;
+    long _deltay;
+    int _defaultvalue;
+    bool isOffsetDisplay;
+    int _cos;
+    int _sin;
     int _offy;
 };
 
+typedef struct
+{
+    int xc;
+    int yc;
+    int _cos;
+    int _sin;
+    int _offx;
+    int _offy;
+    int panel_height;
+    int panel_width;
+    int image_height;
+    int image_width;
+    bool enableLoopx;
+    bool enableLoopy;
+    int enableOption;
+} __OffsetDisplay;
+
 static const char *TAG = "I2SClocklessVirtualLedDriver";
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
- static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint16_t *B);
-//static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map);
-static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver * driver);
-static void IRAM_ATTR loadAndTranspose2(uint8_t *ledt, uint8_t **ledsstrips, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw);
-static void IRAM_ATTR transpose16x1_noinline22(uint32_t *A, uint8_t *B);
+static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B);
+
+static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver);
+static TaskHandle_t I2SClocklessVirtualLedDriver_dispTaskHandle = 0;
+static TaskHandle_t I2SClocklessVirtualLedDriver_returnTaskHandle = 0;
+static void showPixelsTask(void *pvParameters);
+int interruptSource;
 
 enum colorarrangment
 {
@@ -232,102 +289,7 @@ enum displayMode
     LOOP_INTERUPT,
 };
 
-int MOD(int a, int b)
-{
-    /*
-   if(b==1)
-    {
-        if (a<0)
-         return -a;
-         else
-         return a;
-    }*/
-    if (a < 0)
-    {
-        if (-a % b == 0)
-            return 0;
-        else
-            return b - (-a) % b;
-    }
-    else
-        return a % b;
-}
-
-class AllLeds
-{
-
-public:
-    AllLeds() {}
-    void init(uint8_t **ledspointerarraya = NULL)
-    {
-        ledspointerarray = ledspointerarraya;
-    }
-
-    //uint8_t &operator[](uint16_t);
-    uint8_t &operator[](uint16_t i)
-    {
-        uint8_t strip = i / (NUM_LEDS_PER_STRIP * nb_components);
-        uint8_t *offset = ledspointerarray[(strip % 2 == 0) ? strip + 1 : strip - 1] + (i % (NUM_LEDS_PER_STRIP * nb_components));
-        return *(offset);
-    }
-
-private:
-    uint8_t **ledspointerarray;
-};
-
-struct pixel
-{
-    uint8_t raw[nb_components];
-    inline pixel &operator=(const pixel &rhs) __attribute__((always_inline))
-    {
-        raw[0] = rhs.raw[0];
-        raw[1] = rhs.raw[1];
-        raw[2] = rhs.raw[2];
-        return *this;
-    }
-#ifdef USE_FASTLED
-    inline pixel &operator=(const CRGB &rhs) __attribute__((always_inline))
-    {
-        raw[0] = rhs.raw[0];
-        raw[1] = rhs.raw[1];
-        raw[2] = rhs.raw[2];
-        return *this;
-    }
-    inline pixel &operator=(const CHSV &rhs) __attribute__((always_inline))
-    {
-        CRGB temp;
-        hsv2rgb_rainbow(rhs, temp);
-        raw[0] = temp.raw[0];
-        raw[1] = temp.raw[1];
-        raw[2] = temp.raw[2];
-        return *this;
-    }
-#endif
-};
-
-class AllLedsObjects
-{
-
-public:
-    AllLedsObjects() {}
-    void init(uint8_t **ledspointerarraya = NULL)
-    {
-        ledspointerarray = ledspointerarraya;
-    }
-
-    // pixel &operator[](uint16_t);
-    pixel &operator[](uint16_t i)
-    {
-
-        uint8_t strip = i / (NUM_LEDS_PER_STRIP);
-        uint8_t *offset = ledspointerarray[(strip % 2 == 0) ? strip + 1 : strip - 1] + (i % NUM_LEDS_PER_STRIP) * nb_components;
-        return *((pixel *)offset);
-    }
-
-private:
-    uint8_t **ledspointerarray;
-};
-
+__OffsetDisplay _internalOffsetDisplay;
 class I2SClocklessVirtualLedDriver
 {
 
@@ -343,7 +305,12 @@ class I2SClocklessVirtualLedDriver
     const periph_module_t deviceModule[2] = {PERIPH_I2S0_MODULE, PERIPH_I2S1_MODULE};
 
 public:
+    Lines firstPixel[nb_components];
     i2s_dev_t *i2s;
+    int _maxtime;
+    int _max_pixels_out_of_time;
+    int _over_frames;
+    int _nb_frames_displayed;
     uint8_t __green_map[256];
     uint8_t __blue_map[256];
     uint8_t __red_map[256];
@@ -351,55 +318,81 @@ public:
     uint8_t g_map[120];
     uint8_t r_map[120];
     uint8_t b_map[120];
-    intr_handle_t _gI2SClocklessDriver_intr_handle;
+    uint8_t *palette;
+    intr_handle_t _gI2SClocklessDriver_intr_handle = NULL;
     uint8_t _brightness;
     int startleds;
-    int linewidth;
+    // int linewidth;
     float _gammar, _gammab, _gammag, _gammaw;
     OffsetDisplay _offsetDisplay, _defaultOffsetDisplay;
+
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_sem = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semSync = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_semDisp = NULL;
     volatile xSemaphoreHandle I2SClocklessVirtualLedDriver_waitDisp = NULL;
-    frameBuffer * framebuff;
-    bool useFrame=false;
-   #ifdef __HARDWARE_MAP
-        uint16_t * _hmap,*_defaulthmap;
-       volatile uint16_t * _hmapoff;
-           void setHmap( uint16_t * map)
-    {
-        _defaulthmap=map;
-    }
-   
-    #ifdef _HARDWARE_SCROLL_MAP
-     uint16_t * _hmapscroll;
-     //uint16_t * _hmaptmp;
-    #endif
+    bool isOffsetDisplay;
+    bool isRunOnCore = false;
+    int runCore;
+    volatile long tims;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+    int _scalingx[INTERUPT_NUM_LINE_MAX * 3];
+    int offsetsx[INTERUPT_NUM_LINE_MAX];
+    float scalingx[INTERUPT_NUM_LINE_MAX];
+    float scalingy[INTERUPT_NUM_LINE_MAX];
+#endif
+#if CORE_DEBUG_LEVEL >= 4
+    uint32_t _times[NUM_LEDS_PER_STRIP];
+#endif
+    frameBuffer *framebuff;
+    bool useFrame = false;
+    uint16_t *_hmap, *_defaulthmap;
+    uint16_t *_hmapoff;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
 
-    #endif
- #ifdef _LEDMAPPING  
+    void setHmap(uint16_t *map)
+    {
+        _defaulthmap = map;
+    }
+#endif
+
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY| I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE))>0
+    uint16_t *_hmapscroll;
+#endif
+
+
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
     uint16_t (*mapLed)(uint16_t led);
 
-
- inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
-  {
-     mapLed = newMapLed;
-  }
+    inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
+    {
+        mapLed = newMapLed;
+        ESP_LOGD(TAG, "calculate mapping");
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        calculateDefaultMapping();
+#endif
+        ESP_LOGD(TAG, " mapping done");
+    }
 
 #endif
 
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION) > 0
+    Pixel (*pixelCalc)(uint16_t led, int pin, int virtualpin);
 
-#ifdef MULTIPLE_LEDSBUFFER
-    uint8_t *ledsstrips[120];
-    uint8_t *ledsstripsorigin[120];
-    AllLeds allleds;
-    AllLedsObjects LEDS;
+    void setPixelCalc(Pixel (*newPixelCalc)(uint16_t led, int pin, int virtualpin))
+    {
+        pixelCalc = newPixelCalc;
+        ESP_LOGD(TAG, "calculate mapping");
+        // calculateMapping(_defaultOffsetDisplay);
+        ESP_LOGD(TAG, " mapping done");
+    }
 #endif
+
     bool driverInit = false;
 
     /*
-     This flag is used when using the NO_WAIT modeÒÒ
+     This flag is used when using the NO_WAIT mode
      */
+
     volatile bool isDisplaying = false;
     volatile bool isWaiting = true;
     volatile bool framesync = false;
@@ -421,8 +414,6 @@ public:
         gpio_matrix_out(latch_pin, deviceBaseIndex[I2S_DEVICE] + NBIS2SERIALPINS + 8, false, false);
         gpio_set_direction((gpio_num_t)clock_pin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
         gpio_matrix_out(clock_pin, deviceClockIndex[I2S_DEVICE], false, false);
-      
-
     }
 
     void setColorOrderPerStrip(int stripnumber, colorarrangment arr)
@@ -476,13 +467,13 @@ public:
         float tmp;
         for (int i = 0; i < 256; i++)
         {
-            tmp = powf((float)(i)/ 255,  _gammag);
+            tmp = powf((float)(i) / 255, _gammag);
             __green_map[i] = (uint8_t)(tmp * brightness);
-            tmp = powf((float)( i)/ 255,  _gammab);
+            tmp = powf((float)(i) / 255, _gammab);
             __blue_map[i] = (uint8_t)(tmp * brightness);
-            tmp = powf((float)(i) / 255,  _gammar);
+            tmp = powf((float)(i) / 255, _gammar);
             __red_map[i] = (uint8_t)(tmp * brightness);
-            tmp = powf((float)(i) / 255,  _gammaw);
+            tmp = powf((float)(i) / 255, _gammaw);
             __white_map[i] = (uint8_t)(tmp * brightness);
         }
     }
@@ -505,7 +496,7 @@ public:
     }
     void i2sInit()
     {
-        int interruptSource;
+
         if (I2S_DEVICE == 0)
         {
             i2s = &I2S0;
@@ -520,7 +511,6 @@ public:
             interruptSource = ETS_I2S1_INTR_SOURCE;
             i2s_base_pin_index = I2S1O_DATA_OUT0_IDX;
         }
-
         i2sReset();
         i2sReset_DMA();
         i2sReset_FIFO();
@@ -536,36 +526,43 @@ public:
         i2s->sample_rate_conf.val = 0;
         i2s->sample_rate_conf.tx_bits_mod = 16; // Number of parallel bits/pins
         i2s->clkm_conf.val = 0;
-        //i2s->sample_rate_conf.tx_bck_div_num = 1;
+        // i2s->sample_rate_conf.tx_bck_div_num = 1;
 #ifdef DL_CLK
         // Serial.println("norml clock");
         i2s->clkm_conf.clka_en = 0;
-        //rtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+        // rtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 
         // -- Data clock is computed as Base/(div_num + (div_b/div_a))
         //    Base is 80Mhz, so 80/(3+ 7/6) = 19.2Mhz
 
         i2s->clkm_conf.clkm_div_a = 6;   // CLOCK_DIVIDER_A;
-        i2s->clkm_conf.clkm_div_b = 7;   //CLOCK_DIVIDER_B;
-        i2s->clkm_conf.clkm_div_num = 3; //CLOCK_DIVIDER_N;
+        i2s->clkm_conf.clkm_div_b = 7;   // CLOCK_DIVIDER_B;ƒ◊
+        i2s->clkm_conf.clkm_div_num = 3; // CLOCK_DIVIDER_N;
 
 #else
-        //Serial.println("precise clock");
+        // Serial.println("precise clock");
+
+#ifndef _20_MHZ_CLK
+#if  ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+ rtc_clk_apll_enable(true);
+ rtc_clk_apll_coeff_set(31, 133, 7, 1);
+ #else
+        rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+#endif
+#else
+        rtc_clk_apll_enable(true, 0, 0, 8, 1);
+#endif
         i2s->clkm_conf.clka_en = 1;
-        #ifndef _20_MHZ_CLK
-        rtc_clk_apll_enable(true, 31, 133, 7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
-       #else
-        rtc_clk_apll_enable(true, 0, 0, 8, 1); 
-        #endif
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
-        i2s->clkm_conf.clkm_div_b = 0;   //CLOCK_DIVIDER_B;
-        i2s->clkm_conf.clkm_div_num = 1; //CLOCK_DIVIDER_N;
+        i2s->clkm_conf.clkm_div_b = 0;   // CLOCK_DIVIDER_B;
+        i2s->clkm_conf.clkm_div_num = 1; // CLOCK_DIVIDER_N;
 #endif
         i2s->fifo_conf.val = 0;
         i2s->fifo_conf.tx_fifo_mod_force_en = 1;
         i2s->fifo_conf.tx_fifo_mod = 1;  // 16-bit single channel data
-        i2s->fifo_conf.tx_data_num = 32; //32; // fifo length
+        i2s->fifo_conf.tx_data_num = 32; // 32; // fifo length
         i2s->fifo_conf.dscr_en = 1;      // fifo will use dma
+
         i2s->sample_rate_conf.tx_bck_div_num = 1;
         i2s->conf1.val = 0;
         i2s->conf1.tx_stop_en = 0;
@@ -575,14 +572,6 @@ public:
         i2s->conf_chan.tx_chan_mod = 1; // Mono mode, with tx_msb_right = 1, everything goes to right-channel
 
         i2s->timing.val = 0;
-        //i2s->int_ena.val = 0;
-        /*
-        // -- Allocate i2s interrupt
-        SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ENA_V,1, I2S_OUT_EOF_INT_ENA_S);
-        SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
-        SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
-        */
-        esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
 
         // -- Create a semaphore to block execution until all the controllers are done
 
@@ -603,203 +592,22 @@ public:
 
     void initDMABuffers()
     {
-        DMABuffersTampon[0] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2); //the buffers for the
-        DMABuffersTampon[1] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2);
-        DMABuffersTampon[2] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2);
-        DMABuffersTampon[3] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2);
-
-        putdefaultlatch((uint16_t *)DMABuffersTampon[2]->buffer);
-        putdefaultlatch((uint16_t *)DMABuffersTampon[3]->buffer);
-        putdefaultlatch((uint16_t *)DMABuffersTampon[0]->buffer);
-        putdefaultlatch((uint16_t *)DMABuffersTampon[1]->buffer);
-        putdefaultones((uint16_t *)DMABuffersTampon[0]->buffer);
-        putdefaultones((uint16_t *)DMABuffersTampon[1]->buffer);
-
-#ifdef FULL_DMA_BUFFER
-        /*
-         We do create n+2 buffers
-         the first buffer is to be sure that everything is 0
-         the last one is to put back the I2S at 0 the last bufffer is longer because when using the loop display mode the time between two frames needs to be longh enough.
-         */
-        DMABuffersTransposed = (I2SClocklessVirtualLedDriverDMABuffer **)malloc(sizeof(I2SClocklessVirtualLedDriverDMABuffer *) * (num_led_per_strip + 2));
-        for (int i = 0; i < num_led_per_strip + 2; i++)
+        for (int num_buff = 0; num_buff < __NB_DMA_BUFFER + 2; num_buff++)
         {
+            DMABuffersTampon[num_buff] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2 + _DMA_EXTENSTION * 4);
+            putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
+        } // the buffers for the
 
-            if (i < num_led_per_strip + 1)
-                DMABuffersTransposed[i] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 2 * 3);
-            else
-                DMABuffersTransposed[i] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 2 * 3 * 4);
-            putdefaultlatch((uint16_t *)DMABuffersTransposed[i]->buffer);
-            if (i < num_led_per_strip)
-                DMABuffersTransposed[i]->descriptor.eof = 0;
-            if (i)
-            {
-                DMABuffersTransposed[i - 1]->descriptor.qe.stqe_next = &(DMABuffersTransposed[i]->descriptor);
-                if (i < num_led_per_strip + 1)
-                {
-                    putdefaultones((uint16_t *)DMABuffersTransposed[i]->buffer);
-                }
-            }
-        }
-#endif
-    }
-
-#ifdef FULL_DMA_BUFFER
-
-    void stopDisplayLoop()
-    {
-        DMABuffersTransposed[num_led_per_strip + 1]->descriptor.qe.stqe_next = 0;
-    }
-
-    void showPixelsFromBuffer()
-    {
-        showPixelsFromBuffer(NO_WAIT);
-    }
-
-    void showPixelsFromBuffer(displayMode dispmode)
-    {
-        /*
-         We cannot launch twice when in loopmode
-         */
-        if (__displayMode == LOOP && isDisplaying)
+        for (int num_buff = 0; num_buff < __NB_DMA_BUFFER; num_buff++)
         {
-            ESP_LOGE(TAG, "The loop mode is activated execute stopDisplayLoop() first");
-            return;
-        }
-        /*
-         We wait for the display to be stopped before launching a new one
-         */
-        if (__displayMode == NO_WAIT && isDisplaying == true)
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_semDisp, portMAX_DELAY);
-        __displayMode = dispmode;
-        isWaiting = false;
-        if (dispmode == LOOP or dispmode == LOOP_INTERUPT)
-        {
-            DMABuffersTransposed[num_led_per_strip + 1]->descriptor.qe.stqe_next = &(DMABuffersTransposed[0]->descriptor);
-        }
-        transpose = false;
-        i2sStart(DMABuffersTransposed[0]);
-
-        if (dispmode == WAIT)
-        {
-            isWaiting = true;
-            xSemaphoreTake(I2SClocklessVirtualLedDriver_sem, portMAX_DELAY);
+            putdefaultones((uint16_t *)DMABuffersTampon[num_buff]->buffer);
         }
     }
-
-    void showPixelsFirstTranpose()
-    {
-        showPixelsFirstTranpose(NO_WAIT);
-    }
-    void showPixelsFirstTranpose(displayMode dispmode)
-    {
-        if (leds == NULL)
-        {
-            printf("no leds buffer defined");
-            return;
-        }
-        transposeAll();
-        showPixelsFromBuffer(dispmode);
-    }
-
-    void transposeAll()
-    {
-        ledToDisplay = 0;
-        Lines secondPixel[nb_components];
-        for (int j = 0; j < num_led_per_strip; j++)
-        {
-            loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTransposed[j + 1]->buffer, j, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
-        }
-    }
-
-    void setPixelinBuffer(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue, uint8_t white)
-    {
-        uint32_t stripNumber = pos / num_led_per_strip / 8;
-        uint32_t esp32pinnumber = (pos / num_led_per_strip) % 8;
-        uint32_t posOnStrip = pos % (num_led_per_strip);
-
-        uint16_t mask = ~(1 << stripNumber);
-
-        uint8_t colors[3];
-        colors[p_g] = __green_map[green];
-        colors[p_r] = __red_map[red];
-        colors[p_b] = __blue_map[blue];
-        uint16_t *B = (uint16_t *)DMABuffersTransposed[posOnStrip + 1]->buffer;
-        B += (esp32pinnumber % 2 == 0) ? esp32pinnumber + 1 : esp32pinnumber - 1;
-        B += OFFSET;
-        // printf("nb c:%d\n",nb_components);
-        uint8_t y = colors[0];
-        *((uint16_t *)(B)) = (*((uint16_t *)(B)) & mask) | ((uint16_t)((y & 128) >> 7) << stripNumber);
-        *((uint16_t *)(B + 24)) = (*((uint16_t *)(B + 24)) & mask) | ((uint16_t)((y & 64) >> 6) << stripNumber);
-        *((uint16_t *)(B + 48)) = (*((uint16_t *)(B + 48)) & mask) | ((uint16_t)((y & 32) >> 5) << stripNumber);
-        *((uint16_t *)(B + 3 * 24)) = (*((uint16_t *)(B + 3 * 24)) & mask) | ((uint16_t)((y & 16) >> 4) << stripNumber);
-        *((uint16_t *)(B + 4 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 8) >> 3) << stripNumber);
-        *((uint16_t *)(B + 5 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 4) >> 2) << stripNumber);
-        *((uint16_t *)(B + 6 * 24)) = (*((uint16_t *)(B + 6 * 24)) & mask) | ((uint16_t)((y & 2) >> 1) << stripNumber);
-        *((uint16_t *)(B + 7 * 24)) = (*((uint16_t *)(B + 7 * 24)) & mask) | ((uint16_t)(y & 1) << stripNumber);
-
-        B += 192;
-        y = colors[1];
-        *((uint16_t *)(B)) = (*((uint16_t *)(B)) & mask) | ((uint16_t)((y & 128) >> 7) << stripNumber);
-        *((uint16_t *)(B + 24)) = (*((uint16_t *)(B + 24)) & mask) | ((uint16_t)((y & 64) >> 6) << stripNumber);
-        *((uint16_t *)(B + 48)) = (*((uint16_t *)(B + 48)) & mask) | ((uint16_t)((y & 32) >> 5) << stripNumber);
-        *((uint16_t *)(B + 3 * 24)) = (*((uint16_t *)(B + 3 * 24)) & mask) | ((uint16_t)((y & 16) >> 4) << stripNumber);
-        *((uint16_t *)(B + 4 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 8) >> 3) << stripNumber);
-        *((uint16_t *)(B + 5 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 4) >> 2) << stripNumber);
-        *((uint16_t *)(B + 6 * 24)) = (*((uint16_t *)(B + 6 * 24)) & mask) | ((uint16_t)((y & 2) >> 1) << stripNumber);
-        *((uint16_t *)(B + 7 * 24)) = (*((uint16_t *)(B + 7 * 24)) & mask) | ((uint16_t)(y & 1) << stripNumber);
-
-        B += 192;
-        y = colors[2];
-        *((uint16_t *)(B)) = (*((uint16_t *)(B)) & mask) | ((uint16_t)((y & 128) >> 7) << stripNumber);
-        *((uint16_t *)(B + 24)) = (*((uint16_t *)(B + 24)) & mask) | ((uint16_t)((y & 64) >> 6) << stripNumber);
-        *((uint16_t *)(B + 48)) = (*((uint16_t *)(B + 48)) & mask) | ((uint16_t)((y & 32) >> 5) << stripNumber);
-        *((uint16_t *)(B + 3 * 24)) = (*((uint16_t *)(B + 3 * 24)) & mask) | ((uint16_t)((y & 16) >> 4) << stripNumber);
-        *((uint16_t *)(B + 4 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 8) >> 3) << stripNumber);
-        *((uint16_t *)(B + 5 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 4) >> 2) << stripNumber);
-        *((uint16_t *)(B + 6 * 24)) = (*((uint16_t *)(B + 6 * 24)) & mask) | ((uint16_t)((y & 2) >> 1) << stripNumber);
-        *((uint16_t *)(B + 7 * 24)) = (*((uint16_t *)(B + 7 * 24)) & mask) | ((uint16_t)(y & 1) << stripNumber);
-        if (nb_components > 3)
-        {
-            B += 192;
-            y = __white_map[white];
-            *((uint16_t *)(B)) = (*((uint16_t *)(B)) & mask) | ((uint16_t)((y & 128) >> 7) << stripNumber);
-            *((uint16_t *)(B + 24)) = (*((uint16_t *)(B + 24)) & mask) | ((uint16_t)((y & 64) >> 6) << stripNumber);
-            *((uint16_t *)(B + 48)) = (*((uint16_t *)(B + 48)) & mask) | ((uint16_t)((y & 32) >> 5) << stripNumber);
-            *((uint16_t *)(B + 3 * 24)) = (*((uint16_t *)(B + 3 * 24)) & mask) | ((uint16_t)((y & 16) >> 4) << stripNumber);
-            *((uint16_t *)(B + 4 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 8) >> 3) << stripNumber);
-            *((uint16_t *)(B + 5 * 24)) = (*((uint16_t *)(B + 4 * 24)) & mask) | ((uint16_t)((y & 4) >> 2) << stripNumber);
-            *((uint16_t *)(B + 6 * 24)) = (*((uint16_t *)(B + 6 * 24)) & mask) | ((uint16_t)((y & 2) >> 1) << stripNumber);
-            *((uint16_t *)(B + 7 * 24)) = (*((uint16_t *)(B + 7 * 24)) & mask) | ((uint16_t)(y & 1) << stripNumber);
-        }
-    }
-
-    void setPixelinBuffer(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)
-    {
-        setPixelinBuffer(pos, red, green, blue, 0);
-    }
-
-    void initled(int *Pinsq, int clock_pin, int latch_pin)
-    {
-        initled(NULL, Pinsq, clock_pin, latch_pin);
-    }
-    void waitSync()
-    {
-        xSemaphoreTake(I2SClocklessVirtualLedDriver_semSync, portMAX_DELAY);
-    }
-#endif
 
     void setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue, uint8_t white)
     {
 
-#ifndef MULTIPLE_LEDSBUFFER
-        uint8_t *offset = leds + (pos << 2); //faster than doing * 4
-
-#else
-        uint8_t strip = pos / NUM_LEDS_PER_STRIP;
-        uint8_t *offset = ledsstripsorigin[(strip % 2 == 0) ? strip + 1 : strip - 1] + (pos % NUM_LEDS_PER_STRIP) * nb_components;
-
-#endif
+        uint8_t *offset = leds + (pos << 2); // faster than doing * 4
 
         *(offset) = red;
         *(++offset) = green;
@@ -811,20 +619,14 @@ public:
     {
         if (!driverInit)
         {
-            //printf("Driver not initialized\n");
+            // printf("Driver not initialized\n");
             return;
         }
-#ifndef MULTIPLE_LEDSBUFFER
         uint8_t *offset = leds + (pos << 1) + pos;
 
-#else
-        uint8_t strip = pos / NUM_LEDS_PER_STRIP;
-        uint8_t *offset = ledsstripsorigin[(strip % 2 == 0) ? strip + 1 : strip - 1] + (pos % NUM_LEDS_PER_STRIP) * nb_components;
-
-#endif
         if (nb_components == 3)
         {
-            uint8_t *offset = leds + (pos << 1) + pos;
+            // uint8_t *offset = leds + (pos << 1) + pos;
             *(offset) = red;
             *(++offset) = green;
             *(++offset) = blue;
@@ -843,529 +645,819 @@ public:
         }
     }
 
-#ifdef MULTIPLE_LEDSBUFFER
-    void setPixelInStrip(int stripnumber, int pos, uint8_t red, uint8_t green, uint8_t blue)
+    void setPalette(uint8_t *pal)
     {
-        uint8_t *offset = ledsstripsorigin[(stripnumber % 2 == 0) ? stripnumber + 1 : stripnumber - 1] + (pos % NUM_LEDS_PER_STRIP) * nb_components;
-        *(offset) = red;
-        *(++offset) = green;
-        *(++offset) = blue;
+        palette = pal;
     }
-
-    uint8_t *getStrip(int stripnumber)
-    {
-        return ledsstripsorigin[(stripnumber % 2 == 0) ? stripnumber + 1 : stripnumber - 1];
-    }
-
-#endif
-
     OffsetDisplay getDefaultOffset()
     {
         return _defaultOffsetDisplay;
     }
-/*
-    void showPixels(uint8_t *new_leds, OffsetDisplay offdisp)
+
+    void waitDisplay()
     {
-        _offsetDisplay = offdisp;
-        showPixels(new_leds);
-        _offsetDisplay = _defaultOffsetDisplay;
+        if (isDisplaying == true)
+        {
+            wasWaitingtofinish = true;
+            const TickType_t xDelay = 100;
+            xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp, xDelay);
+        }
+        isDisplaying = true;
     }
-*/
-
- void waitDisplay()
- {
-    if(isDisplaying == true and __displayMode==NO_WAIT)
-            {
-                wasWaitingtofinish = true;
-                ESP_LOGD(TAG, "already displaying... wait");
-                if(I2SClocklessVirtualLedDriver_waitDisp==NULL)
-                {
-                    I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
-                }
-                const TickType_t xDelay = 50 ; 
-                xSemaphoreTake(I2SClocklessVirtualLedDriver_waitDisp,xDelay);
-            
-            }
- }
-
-
-void calculateOffsetDisplay(OffsetDisplay offdisp)
-{
-    #ifdef __HARDWARE_MAP
-                if(offdisp.image_width==0 or offdisp.image_width==30000  )
-        {
-            offdisp.image_width=offdisp.panel_width;
-        }
-                if(offdisp.image_height==0 or offdisp.image_height==30000)
-        {
-            offdisp.image_height=offdisp.panel_height;
-        }
-        if(offdisp.window_width==0 or offdisp.window_width==30000)
-        {
-
-            offdisp.window_width=offdisp.image_width;
-        }
-                if(offdisp.window_height==0 or offdisp.window_height==30000)
-        {
-            offdisp.window_height=offdisp.image_height;
-        }
-
-        #ifdef _NOCROP
-               offdisp._offx=  -offdisp.offsetx + 30 * offdisp.image_width;
-         offdisp._offy= -offdisp.offsety + 30 * offdisp.image_height;
-#else
-               offdisp._offx=  -offdisp.offsetx + 30 * offdisp.window_width;
-         offdisp._offy= -offdisp.offsety + 30 * offdisp.window_height;
-         #endif
-         
-                  if(offdisp.scallingx<0.1)
-            offdisp.scallingx=0.1;
-               if(offdisp.scallingy<0.1)
-            offdisp.scallingy=0.1;
-            
-         offdisp._cos=(int) (float)(128*cos (-offdisp.rotation)/offdisp.scallingx);
-         
-         offdisp._sin=(int) (float)(128*sin (-offdisp.rotation)/offdisp.scallingy);
-
-
-            offdisp._scallingx=16/ offdisp.scallingx;
-             offdisp._scallingy= 16/ offdisp.scallingy;
-            // Serial.println(offdisp._cos);
-        _offsetDisplay = offdisp;
-        _hmap=_defaulthmap;
-    #ifdef _HARDWARE_SCROLL_MAP
-      calculateMapping2(offdisp);
-       
     
-     _hmap= _hmapscroll;
-      #else
 
-      #ifndef HARDWARE_SCROLL
-      calculateMapping(offdisp);
-       
-      #endif
-      #endif
-      #endif
-}
+    void calculateOffsetDisplay(OffsetDisplay offdisp)
+    {
+        if (offdisp.image_width == 0 or offdisp.image_width == _MAX_VALUE)
+        {
+            offdisp.image_width = offdisp.panel_width;
+        }
+        if (offdisp.image_height == 0 or offdisp.image_height == _MAX_VALUE)
+        {
+            offdisp.image_height = offdisp.panel_height;
+        }
+        if (offdisp.window_width == 0 or offdisp.window_width == _MAX_VALUE)
+        {
+
+            offdisp.window_width = offdisp.image_width;
+        }
+        if (offdisp.window_height == 0 or offdisp.window_height == _MAX_VALUE)
+        {
+            offdisp.window_height = offdisp.image_height;
+        }
+        int enableOption = 0;
+        if (offdisp.enableLoopx)
+        {
+            offdisp._offx = -offdisp.offsetx + 10 * offdisp.window_width + offdisp.xc;
+            enableOption += 1;
+        }
+        else
+            offdisp._offx = -offdisp.offsetx + offdisp.xc;
+        if (offdisp.enableLoopy)
+        {
+            offdisp._offy = -offdisp.offsety + 10 * offdisp.window_height + offdisp.yc;
+            enableOption += 2;
+        }
+        else
+            offdisp._offy = -offdisp.offsety + offdisp.yc;
+
+        _internalOffsetDisplay.enableOption = enableOption;
+
+        if (offdisp.scallingx < 0.1 and offdisp.scallingx >= 0)
+            offdisp.scallingx = 0.1;
+        if (offdisp.scallingx > -0.1 and offdisp.scallingx < 0)
+            offdisp.scallingx = -0.1;
+        if (offdisp.scallingy < 0.1)
+            offdisp.scallingy = 0.1;
+
+        offdisp._cos = (int)(float)(128 * cos(-offdisp.rotation) / offdisp.scallingx);
+
+        offdisp._sin = (int)(float)(128 * sin(-offdisp.rotation) / offdisp.scallingy);
+
+        _offsetDisplay = offdisp;
+        _internalOffsetDisplay.image_height = offdisp.image_height;
+        _internalOffsetDisplay.image_width = offdisp.image_width;
+        _internalOffsetDisplay.panel_height = offdisp.panel_height;
+        _internalOffsetDisplay.panel_width = offdisp.panel_width;
+        _internalOffsetDisplay.xc = offdisp.xc;
+        _internalOffsetDisplay.yc = offdisp.yc;
+        _internalOffsetDisplay._cos = offdisp._cos;
+        _internalOffsetDisplay._sin = offdisp._sin;
+        _internalOffsetDisplay._offx = offdisp._offx + offdisp.yc * offdisp._sin / 128 - offdisp.xc * offdisp._cos / 128;
+        _internalOffsetDisplay._offy = offdisp._offy - offdisp.yc * offdisp._cos / 128 - offdisp.xc * offdisp._sin / 128;
+        _internalOffsetDisplay.enableLoopx = _offsetDisplay.enableLoopx;
+        _internalOffsetDisplay.enableLoopy = _offsetDisplay.enableLoopy;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+        for (int i = 0; i < INTERUPT_NUM_LINE_MAX; i++)
+        {
+            if (abs(scalingx[i]) < 0.05)
+            {
+                if (scalingx[i] > 0)
+                    scalingx[i] = 0.05;
+                else
+                    scalingx[i] = -0.05;
+            }
+            if (abs(scalingy[i]) < 0.05)
+            {
+                if (scalingy[i] > 0)
+                    scalingy[i] = 0.05;
+                else
+                    scalingy[i] = -0.05;
+            }
+            _scalingx[3 * i] = SCALEMAX / scalingx[i];
+            _scalingx[3 * i + 1] = ((- _internalOffsetDisplay.panel_width / 2) * SCALEMAX + ( _internalOffsetDisplay.panel_width / 2 + offsetsx[i]) * _scalingx[3 * i]) / SCALEMAX;
+
+            if (i >= 1)
+            {
+                _scalingx[3 * i + 2] = _scalingx[3 * (i - 1) + 2] + 1 / scalingy[i] * SCALEMAX;
+            }
+        }
+#endif
+
+
+    }
 
     void showPixels(displayMode dispmode, OffsetDisplay offdisp)
     {
         waitDisplay();
-        #ifdef __HARDWARE_MAP
-   calculateOffsetDisplay(offdisp);
-        __displayMode=dispmode;
-        leds=saveleds;
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+        _offsetDisplay = offdisp;
+        isOffsetDisplay = offdisp.isOffsetDisplay;
+        __displayMode = dispmode;
+        if (useFrame)
+        {
+            leds = framebuff->getFrametoDisplay();
+        }
+        else
+        {
+            leds = saveleds;
+        }
         __showPixels();
-        #endif
+#endif
     }
-
 
     void showPixels(uint8_t *newleds)
     {
 
         waitDisplay();
-         #ifdef __HARDWARE_MAP
-          _hmap=_defaulthmap;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
+        _hmapscroll = _defaulthmap;
         #endif
+#endif
 
         leds = newleds;
-         __displayMode=WAIT;
-        _offsetDisplay=_defaultOffsetDisplay;
+        __displayMode = WAIT;
+        _offsetDisplay = _defaultOffsetDisplay;
         __showPixels();
-  
     }
-void showPixels(OffsetDisplay offdisp)
-{
-            waitDisplay();
-         #ifdef __HARDWARE_MAP
-         calculateOffsetDisplay(offdisp);
-        #endif
-
-        leds = saveleds;
-         __displayMode=WAIT;
-        _offsetDisplay=offdisp;
-    __showPixels();
-}
- void showPixels(displayMode dispmode,uint8_t *newleds,OffsetDisplay offd)
- {
-        waitDisplay();
-        #ifdef __HARDWARE_MAP
-   calculateOffsetDisplay(offd);
-        __displayMode=dispmode;
-        leds=newleds;
-        __showPixels();
-        // calculateMapping(_defaultOffsetDisplay);
-       // _offsetDisplay = _defaultOffsetDisplay;
-        #endif
- }
-
- void showPixels(uint8_t *newleds,OffsetDisplay offd)
- {
-        waitDisplay();
-        #ifdef __HARDWARE_MAP
-        calculateOffsetDisplay(offd);
-        __displayMode=WAIT;
-        leds=newleds;
-        __showPixels();
-        // calculateMapping(_defaultOffsetDisplay);
-       // _offsetDisplay = _defaultOffsetDisplay;
-        #endif
- }
-
-        void showPixels(displayMode dispmode,uint8_t *newleds)
+    void showPixels(OffsetDisplay offdisp)
     {
-        //printf("je tente display\n");
-        
-    waitDisplay();
-        //uint8_t *tmp_leds;
-        //tmp_leds = leds;
-                 #ifdef __HARDWARE_MAP
-          _hmap=_defaulthmap;
-        #endif
-        leds = newleds;
-        __displayMode=dispmode;
-        _offsetDisplay=_defaultOffsetDisplay;
-          __showPixels();
-        //leds = tmp_leds;
-    }
+        waitDisplay();
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+        _offsetDisplay = offdisp;
+        isOffsetDisplay = offdisp.isOffsetDisplay;
 
-
-  void showPixels()
-    {
-        if(useFrame)
+        if (useFrame)
         {
-            showPixels(NO_WAIT,framebuff->getFrametoDisplay());
+            leds = framebuff->getFrametoDisplay();
+            __displayMode = NO_WAIT;
         }
         else
         {
-            waitDisplay();
-                   leds = saveleds;
-        __displayMode=WAIT;
-        _offsetDisplay=_defaultOffsetDisplay;
-            __showPixels();
+            leds = saveleds;
+            __displayMode = WAIT;
+        }
+
+        __showPixels();
+#endif
+    }
+
+    void showPixels(displayMode dispmode, uint8_t *newleds, OffsetDisplay offd)
+    {
+        waitDisplay();
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+        _offsetDisplay = offd;
+        isOffsetDisplay = offd.isOffsetDisplay;
+        __displayMode = dispmode;
+        leds = newleds;
+        __showPixels();
+        // calculateMapping(_defaultOffsetDisplay);
+        // _offsetDisplay = _defaultOffsetDisplay;
+#endif
+    }
+    void showPixels(displayMode dispmode)
+    {
+
+        waitDisplay();
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        _hmap = _defaulthmap;
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
+        _hmapscroll = _defaulthmap;
+        #endif
+#endif
+        // leds = newleds;
+        leds = saveleds;
+        __displayMode = dispmode;
+        _offsetDisplay = _defaultOffsetDisplay;
+        __showPixels();
+    }
+    void showPixels(uint8_t *newleds, OffsetDisplay offd)
+    {
+        waitDisplay();
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+        _offsetDisplay = offd;
+        isOffsetDisplay = offd.isOffsetDisplay;
+        __displayMode = WAIT;
+        leds = newleds;
+        __showPixels();
+
+#endif
+    }
+
+    void showPixels(displayMode dispmode, uint8_t *newleds)
+    {
+
+        waitDisplay();
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
+        _hmapscroll = _defaulthmap;
+        #endif
+        _hmap = _defaulthmap;
+#endif
+        leds = newleds;
+        __displayMode = dispmode;
+        _offsetDisplay = _defaultOffsetDisplay;
+        __showPixels();
+    }
+
+    void showPixels()
+    {
+        waitDisplay();
+        
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+
+        isOffsetDisplay = false;
+        _hmapoff = _defaulthmap;
+       #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0 
+        _hmapscroll = _defaulthmap;
+        #endif
+#endif
+        if (useFrame)
+        {
+
+            leds = framebuff->getFrametoDisplay();
+            if (leds == NULL)
+            {
+                ESP_LOGD(TAG, "no buffer");
+                return;
+            }
+            __displayMode = NO_WAIT;
+            // __displayMode=WAIT;
+        }
+        else
+        {
+
+            leds = saveleds;
+            __displayMode = WAIT;
+        }
+        _offsetDisplay = _defaultOffsetDisplay;
+
+        __showPixels();
+    }
+
+    void _runShowPixelsOnCore()
+    {
+
+        if (I2SClocklessVirtualLedDriver_returnTaskHandle == 0)
+        {
+
+            I2SClocklessVirtualLedDriver_returnTaskHandle = xTaskGetCurrentTaskHandle();
+
+            // -- Trigger the show task
+            xTaskNotifyGive(I2SClocklessVirtualLedDriver_dispTaskHandle);
+
+            // -- Wait to be notified that it's done
+            // ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            // delay(100);
+            // interrupts();
+            I2SClocklessVirtualLedDriver_returnTaskHandle = 0;
         }
     }
 
+    void disableShowPixelsOnCore()
+    {
+        if (I2SClocklessVirtualLedDriver_dispTaskHandle)
+        {
+            vTaskDelete(I2SClocklessVirtualLedDriver_dispTaskHandle);
+        }
+        if (_gI2SClocklessDriver_intr_handle != NULL)
+        {
+            esp_intr_free(_gI2SClocklessDriver_intr_handle);
+        }
+        _gI2SClocklessDriver_intr_handle = NULL;
+        runCore = 0;
+        isRunOnCore = false;
+    }
+    void enableShowPixelsOnCore(int corenum)
+    {
+        if (corenum > 1)
+        {
+            ESP_LOGE(TAG, "enableShowPixelsOnCore error corenum > 1 core should be 0 or 1");
+            return;
+        }
+        if (!driverInit)
+        {
+            ESP_LOGE(TAG, "Driver not initiated this will have no effect ... it will be executed at first call");
+            return;
+        }
+        if (I2SClocklessVirtualLedDriver_dispTaskHandle)
+        {
+            vTaskDelete(I2SClocklessVirtualLedDriver_dispTaskHandle);
+        }
+        runCore = corenum;
+        isRunOnCore = true;
+        xTaskCreatePinnedToCore(showPixelsTask, "showPixelsTask", 2000, this, 3, &I2SClocklessVirtualLedDriver_dispTaskHandle, corenum);
+    }
 
     void __showPixels()
     {
-
-
-#ifdef __HARDWARE_MAP
-           _hmapoff=_hmap;
-        
-    #endif
-#if HARDWARESPRITES == 1
-        memset(target, 0, NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2);
-        for (int i = 0; i < 8; i++)
+        if (isRunOnCore)
         {
-            sprites[i].reorder(_offsetDisplay.panel_width, _offsetDisplay.panel_height);
+            if (!I2SClocklessVirtualLedDriver_dispTaskHandle)
+            {
+                ESP_LOGI(TAG, "No running core defined, rexecuting enable");
+                enableShowPixelsOnCore(runCore);
+                vTaskDelay(10);
+            }
+            _runShowPixelsOnCore();
         }
+        else
+        {
+            ___showPixels();
+        }
+    }
+
+    void ___showPixels()
+    {
+        if (_gI2SClocklessDriver_intr_handle == NULL)
+        {
+
+            ESP_LOGV(TAG, "setting interupt handler");
+            esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
+            if (e != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Impossible to create interupt allocation");
+                return;
+            }
+            ESP_LOGV(TAG, "interupt handler set on core %d", xPortGetCoreID());
+        }
+        else
+        {
+            ESP_LOGV(TAG, "Interrupt alreay setup on core");
+        }
+
+        ESP_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+
+ calculateOffsetDisplay(_offsetDisplay);
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
+
+        if (isOffsetDisplay)
+        {
+            ESP_LOGV(TAG, "calcualting data");
+           
+          //  calculateOffsetDisplay(_offsetDisplay);
+            #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+
+        calculateScrollMapping();
+
 #endif
+            ESP_LOGV(TAG, "cdone alcualting data");
+        }
+
+        isOffsetDisplay = false;
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+        _hmapoff = _hmapscroll;
+#endif
+
+#endif
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE) > 0
+        _hmapoff = _defaulthmap;
+#endif
+
         if (!driverInit)
         {
-            printf("Driver not initialized\n");
+            ESP_LOGE(TAG, "Driver not initialized");
             return;
         }
-#ifdef MULTIPLE_LEDSBUFFER
-        for (int i = 0; i < NBIS2SERIALPINS * 8; i++)
-        {
 
-            ledsstrips[i] = ledsstripsorigin[i];
-        }
-#else
         if (leds == NULL)
         {
             ESP_LOGE(TAG, "no leds buffer defined");
             return;
         }
-#endif
-        ledToDisplay = 0;
-        transpose = true;
 
-        DMABuffersTampon[0]->descriptor.qe.stqe_next = &(DMABuffersTampon[1]->descriptor);
-        DMABuffersTampon[1]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
-        DMABuffersTampon[2]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
-        DMABuffersTampon[3]->descriptor.qe.stqe_next = 0;
+        transpose = true;
+        for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
+        {
+            DMABuffersTampon[buff_num]->descriptor.qe.stqe_next = &(DMABuffersTampon[buff_num + 1]->descriptor);
+        }
+
+        DMABuffersTampon[__NB_DMA_BUFFER - 1]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
+        DMABuffersTampon[__NB_DMA_BUFFER]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
+        DMABuffersTampon[__NB_DMA_BUFFER + 1]->descriptor.qe.stqe_next = 0;
         dmaBufferActive = 0;
-#ifndef MULTIPLE_LEDSBUFFER
-       // loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
-       loadAndTranspose(this);
-#else
-        loadAndTranspose2(leds, ledsstrips, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map);
-#endif
- //__displayMode=dispmode;
-        dmaBufferActive = 1;
-         isDisplaying = true;
-        i2sStart(DMABuffersTampon[2]);
-            if (__displayMode == WAIT)
+        // loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
+        ledToDisplay = 0;
+        for (int num_buff = 0; num_buff < __NB_DMA_BUFFER - 1; num_buff++)
+        {
+            loadAndTranspose(this);
+            dmaBufferActive++;
+            ledToDisplay++;
+        }
+        ledToDisplay--;
+        dmaBufferActive = __NB_DMA_BUFFER - 1;
+        //__displayMode=dispmode;
+
+        isDisplaying = true;
+        /*
+        for(int i=0;i<NUM_LEDS_PER_STRIP+10;i++)
+        {
+               ledToDisplay_in[i]=999;
+               ledToDisplay_inbuffer[i]=999;
+                ledToDisplay_inbufferfor[i]=0;
+        }*/
+        ledToDisplay_out = 0;
+        i2sStart(DMABuffersTampon[__NB_DMA_BUFFER]);
+        if (__displayMode == WAIT)
         {
             isWaiting = true;
-            if(  I2SClocklessVirtualLedDriver_sem==NULL)
-            I2SClocklessVirtualLedDriver_sem=xSemaphoreCreateBinary();
+            if (I2SClocklessVirtualLedDriver_sem == NULL)
+                I2SClocklessVirtualLedDriver_sem = xSemaphoreCreateBinary();
             xSemaphoreTake(I2SClocklessVirtualLedDriver_sem, portMAX_DELAY);
         }
-        else{
-        isWaiting = false;
-        isDisplaying = true;
+        else
+        {
+            isWaiting = false;
+            // isDisplaying = true;
         }
 
-        //vTaskDelay(1/portTICK_PERIOD_MS);
-        //delay(1);
+// vTaskDelay(1/portTICK_PERIOD_MS);
+// delay(1);
+#if CORE_DEBUG_LEVEL >= 5
+        uint32_t total = 0;
+        uint32_t totalmax = 0;
+
+        int _min, _max;
+        int _proposed_dma_extension;
+        _proposed_dma_extension=0;
+        _max = 0;
+        _min = 500 * 240;
+        _nb_frames_displayed++;
+        for (int _time = 1; _time < NUM_LEDS_PER_STRIP; _time++)
+        {
+            if (_times[_time] > (_BUFFER_TIMING * 240))
+            {
+                totalmax++;
+                // framenum=_time;
+            }
+
+            if (_min > _times[_time])
+                _min = _times[_time];
+            if (_max < _times[_time])
+                _max = _times[_time];
+            total += _times[_time];
+        }
+        if (_maxtime < _max)
+            _maxtime = _max;
+        if (_max_pixels_out_of_time < totalmax)
+            _max_pixels_out_of_time = totalmax;
+        if (totalmax > 0)
+            _over_frames++;
+        if (_maxtime > _BASE_BUFFER_TIMING * 240)
+        {
+            _proposed_dma_extension = (((float)_maxtime / 240 + 4) * 19.2 - (NUM_VIRT_PINS + 1) * nb_components * 8 * 3) / 2;
+        }
+        else
+        {
+            _proposed_dma_extension = 0;
+        }
+        //\n     -  proposed DMA extension:%d
+        ESP_LOGV(TAG, "\nFrame data:\n     - frame number:%d\n     - interupt time min:%0.2fus\n     - interupt time max:%0.2fus\n     - interupt time average:%0.2fus\n     - nb of pixel with interuptime > %0.2fus: %d\n\
+Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of frames with pixels 'out of time':%d\n     - max interuptime %.2fus\n     - max number of pixels out of interuptime in a frame:%d\n     - proposed DMA extension:%d",
+                 _nb_frames_displayed, (float)_min / 240, (float)_max / 240, (float)total / 240 / (NUM_LEDS_PER_STRIP - 1), _BUFFER_TIMING, totalmax, _nb_frames_displayed, _over_frames, (float)_maxtime / 240, _max_pixels_out_of_time, _proposed_dma_extension);
+#endif
     }
 
-    //list of the leds strips
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+   inline __attribute__((always_inline)) int remapStatic() 
+    {
+        // printf("%d\n",_internalOffsetDisplay.image_width);
+        int ye = (*_hmapoff) / _internalOffsetDisplay.panel_width;
+        int xe = (*_hmapoff) - ye * _internalOffsetDisplay.panel_width;
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+
+        xe = (((xe)*_scalingx[3 * ye]) >> 6) - (_scalingx[3 * ye + 1]);
+        ye = (_scalingx[3 * ye + 2]) >> 6;
+
+#endif
+
+        int xr = (((xe)*_internalOffsetDisplay._cos - (ye)*_internalOffsetDisplay._sin) >> 7) + _internalOffsetDisplay._offx;
+        int yr = (((xe)*_internalOffsetDisplay._sin + (ye)*_internalOffsetDisplay._cos) >> 7) + _internalOffsetDisplay._offy;
+
+switch (_internalOffsetDisplay.enableOption)
+{
+
+    case 0:
+
+    if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
+            {
+
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+                 if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
+            {
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+            return (xr + (yr)*_internalOffsetDisplay.image_width);
+    break;
+case 1:
+     xr = xr % _internalOffsetDisplay.image_width;
+                 if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
+            {
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+            return (xr + (yr)*_internalOffsetDisplay.image_width);
+ break;
+    case 2:
+
+    if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
+            {
+
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+            }
+               yr = yr % _internalOffsetDisplay.image_height;
+               return (xr + (yr)*_internalOffsetDisplay.image_width);
+    break;
+   
+    case 3:
+
+ xr = xr % _internalOffsetDisplay.image_width;
+               yr = yr % _internalOffsetDisplay.image_height;
+               return (xr + (yr)*_internalOffsetDisplay.image_width);
+    break;
+
+
+default:
+ return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
+    break;
+}
+
 
 /*
-Calculate the Mapping
-*/
-
-#ifdef _SOFT_MAP_CALC
-int remap(int val, OffsetDisplay off)
-{
-    long xr,yr,newx,newy;
-    long xe=(val % off.panel_width);//+off._offx);//%off.window_width;
-    long ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
-   
-    if(off.enableRotation)
-    {
-       // xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)*20/128/off.scallingx+off.xc;
-        //yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)*20/128/off.scallingx+off.yc; 
-         xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc;
-         yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)/128+off.yc;
-    }
-    else
-    {
-        //xr=(xe*off._cos)*20/128/off.scallingx;
-       // yr=(ye*off._cos)*20/128/off.scallingx;
-       xr=xe*off._scallingx/16;
-       yr=ye*off._scallingy/16;
-    }
-    if(off.enableLoopx)
-    {
-        xr+=off._offx;
-    }
-    else
-    {
-        xr-=off.offsetx;
-        if(xr<0 or xr>=off.image_width)
-            return  off.image_width*off.image_height+1;
-    }
-    if(off.enableLoopy)
-    {
-        yr+=off._offy;
-    }
-    else
-    {
-        yr-=off.offsety;
-        if(yr<0 or yr>=off.image_height)
-            return  off.image_width*off.image_height+1;
-    }
-    return xr%off.image_width+(yr%off.image_height)*off.image_width;
-}//
-
-#else
-int remap(int val, OffsetDisplay off)
-{
-    long xr,yr,newx,newy;
-    long xe=(val % off.panel_width);//+off._offx);//%off.window_width;
-    long ye=(val/off.panel_width);//+off._offy);//%off.window_height;  
-#ifdef _ROTATION
-             xr=((xe-off.xc)*off._cos-(ye-off.yc)*off._sin)/128+off.xc;
-            yr=((xe-off.xc)*off._sin+(ye-off.yc)*off._cos)/128+off.yc;
-#else
-       xr=xe*off._scallingx/16;
-       yr=ye*off._scallingy/16;
-#endif
-#ifdef _LOOPX
-    xr+=off._offx;
-#else
-        xr-=off.offsetx;
-        if(xr<0 or xr>=off.image_width)
-            return  off.image_width*off.image_height+1;
-#endif
-#ifdef _LOOPY
-    yr+=off._offy;
-#else
-        yr-=off.offsety;
-        if(yr<0 or yr>=off.image_height)
-            return  off.image_width*off.image_height+1;
-#endif
-return xr%off.image_width+(yr%off.image_height)*off.image_width;
-}
-#endif
-
-
-void remap2(uint16_t val, uint16_t *g, OffsetDisplay off)
-{
- //int x=val % off.panel_width;
- //int y=val/off.panel_width;
-// int newx=(val % off.panel_width+off._offx)%off.window_width;
-// if (newx<0)
-  //  newx+=off.window_width;
- //int newy=((val/off.panel_width+off._offy)%off.window_height)*off.image_width;
- // if (newy<0)
-   // newy+=off.window_height;
-    // return(newy*off.image_width+newx);
-  *g= (((val/off.panel_width+off._offy)%off.window_height)*off.image_width+(val % off.panel_width+off._offx)%off.window_width)*nb_components;
-     //return(newy+newx);
-
-}
-
-#ifdef __HARDWARE_MAP
-     //   _offsetDisplay = offdisp;
-    #ifdef _HARDWARE_SCROLL_MAP
-void calculateMapping2(OffsetDisplay off)
-{
-    if(!_hmapscroll)
-    {
-      ESP_LOGE(TAG, "No more memory\n");
-        return;
-    }
-      uint16_t offset2=0;
-         for(uint16_t leddisp=0;leddisp<NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8;leddisp++)
-         {
-            int val=_defaulthmap[leddisp];
-            //_hmapscroll[leddisp]=(((val/off.panel_width+off._offy)%off.panel_height)*off.image_width+(val % off.panel_width+off._offx)%off.panel_width);
-             _hmapscroll[leddisp]=remap(_defaulthmap[leddisp],off);//*nb_components;
-            //remap2(_hmap[leddisp],_hmapscroll+leddisp,off);
-         }
-}
-#endif
-void calculateMapping(OffsetDisplay off)
-{
-    /*
-        for(int leddisp=0;leddisp<num_led_per_strip;leddisp++)
+        if ((_internalOffsetDisplay.enableOption & 1))
         {
-            for (int i = 0; i < num_strips; i++)
+            xr = xr % _internalOffsetDisplay.image_width;
+
+        }
+        else
+        {
+                        if (xr < 0 or xr >= _internalOffsetDisplay.image_width)
             {
-                _hmap[i+leddisp*num_strips]=mapLed(leddisp+i*num_led_per_strip)*nb_components;
+
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
             }
         }
-        */
-      //int offset=0;
-      if(!_defaulthmap)
-      {
-        ESP_LOGE(TAG, "No more memory\n");
-        return;
-      }
-       uint16_t offset2=0;
-         for(uint16_t leddisp=0;leddisp<NUM_LEDS_PER_STRIP;leddisp++)
+
+    
+        if ((_internalOffsetDisplay.enableOption & 2))
+        {
+                        yr = yr % _internalOffsetDisplay.image_height;
+
+        }
+        else
+        {
+            if (yr < 0 or yr >= _internalOffsetDisplay.image_height)
             {
-                uint16_t led_tmp=NUM_LEDS_PER_STRIP+leddisp;
-
-                 for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                 led_tmp-=I2S_OFF3_MAP;
-
-               for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                 led_tmp-=I2S_OFF4_MAP;
-                  for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                led_tmp-=I2S_OFF3_MAP;
-                               for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                 led_tmp-=I2S_OFF4_MAP;
-                 for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                 led_tmp-=I2S_OFF3_MAP;
-
-               for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                 led_tmp-=I2S_OFF4_MAP;
-                  for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                led_tmp-=I2S_OFF3_MAP;
-                               for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
-                 {
-
-                        #ifdef __HARDWARE_S
-                         _defaulthmap[offset2]=remap(mapLed(led_tmp),off);
-
-                         #else
-                          _defaulthmap[offset2]=remap(mapLed(led_tmp),off)*nb_components;
-                         #endif
-                         led_tmp+=I2S_OFF_MAP;
-                         offset2++;
-                }
-                 led_tmp-=I2S_OFF4_MAP;
+                return _internalOffsetDisplay.image_width * _internalOffsetDisplay.image_height;
             }
-}
+        }
+
+        return (xr + (yr)*_internalOffsetDisplay.image_width);
+       */
+    }
+#endif
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+    void calculateDefaultMapping()
+    {
+
+        uint16_t offset2 = 0;
+        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
+        {
+            uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
+
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+                _defaulthmap[offset2] = mapLed(led_tmp);
+#else
+                _defaulthmap[offset2] = mapLed(led_tmp) * _palette_size;
+#endif
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+        }
+    }
+#endif
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+    void calculateScrollMapping()
+    {
+
+       // int xr, yr; //,newx,newy;
+        if (!_hmapscroll)
+        {
+            ESP_LOGE(TAG, "No more memory\n");
+            return;
+        }
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
+        _hmapoff = _defaulthmap;
+        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8; leddisp++)
+        {
+            _hmapscroll[leddisp] = remapStatic() * _palette_size;
+            _hmapoff++;
+        }
+#endif
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) > 0
+        uint16_t offset2 = 0;
+        uint16_t val;
+        _hmapoff = &val ;
+        for (uint16_t leddisp = 0; leddisp < NUM_LEDS_PER_STRIP; leddisp++)
+        {
+            uint16_t led_tmp = NUM_LEDS_PER_STRIP + leddisp;
+
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+               // printf("%d %d %d\n",led_tmp,val,_hmapscroll[offset2]);
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF4_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+            led_tmp -= I2S_OFF3_MAP;
+            for (uint16_t i = 0; i < NBIS2SERIALPINS; i++)
+            {
+
+                val = mapLed(led_tmp);
+                _hmapscroll[offset2] = remapStatic() * _palette_size;
+                led_tmp += I2S_OFF_MAP;
+                offset2++;
+            }
+        }
 
 #endif
+    }
+#endif
+
+#ifdef USE_FASTLED
+    void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin)
+    {
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+#endif
+
+    void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
+    {
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
 
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
+        ESP_LOGI(TAG, "Start driver");
         driverInit = false;
+        isOffsetDisplay = false;
 #ifdef MULTIPLE_LEDSBUFFER
         allleds.init(ledsstripsorigin);
         LEDS.init(ledsstripsorigin);
@@ -1423,122 +1515,144 @@ void calculateMapping(OffsetDisplay off)
         _gammaw = 1;
         setBrightness(255);
         startleds = 0;
-        dmaBufferCount = 2;
-        linewidth = NUM_LEDS_PER_STRIP;
+        dmaBufferCount = __NB_DMA_BUFFER;
+        // linewidth = NUM_LEDS_PER_STRIP;
         this->num_led_per_strip = NUM_LEDS_PER_STRIP;
+        ESP_LOGD(TAG, "offset initiation");
         _offsetDisplay.offsetx = 0;
         _offsetDisplay.offsety = 0;
-        _offsetDisplay.rotation=0;
-        _offsetDisplay._cos=128;
-          _offsetDisplay._sin=0;
-       _offsetDisplay.panel_width = 30000;
-        _offsetDisplay.panel_height = 30000; //maximum
-         _offsetDisplay.image_height = 30000;
-        _offsetDisplay.image_width = 30000; //maximum
-        _offsetDisplay.window_height = 30000;
-        _offsetDisplay.window_width = 30000;
-        _offsetDisplay._offx=  0;//_offsetDisplay.offsetx + 4 * _offsetDisplay.window_width;
-         _offsetDisplay._offy=0;// _offsetDisplay.offsety + 4 * _offsetDisplay.window_height;
-      _offsetDisplay.enableLoopx=false;
-      _offsetDisplay.enableLoopy=false;
-      _offsetDisplay.enableRotation=false;
-       _offsetDisplay.scallingx=1;
-        _offsetDisplay.scallingy=1;
-               _offsetDisplay._scallingx=16;
-        _offsetDisplay._scallingy=16;
+        _offsetDisplay.rotation = 0;
+        _offsetDisplay._cos = 128;
+        _offsetDisplay._sin = 0;
+        _offsetDisplay.panel_width = _MAX_VALUE;
+        _offsetDisplay.panel_height = _MAX_VALUE; // maximum
+        _offsetDisplay.image_height = _MAX_VALUE;
+        _offsetDisplay.image_width = _MAX_VALUE; // maximum
+        _offsetDisplay.window_height = _MAX_VALUE;
+        _offsetDisplay.window_width = _MAX_VALUE;
+        _offsetDisplay._offx = 0; //_offsetDisplay.offsetx + 4 * _offsetDisplay.window_width;
+        _offsetDisplay._offy = 0; // _offsetDisplay.offsety + 4 * _offsetDisplay.window_height;
+        _offsetDisplay.enableLoopx = false;
+        _offsetDisplay.enableLoopy = false;
+        _offsetDisplay.enableRotation = false;
+        _offsetDisplay.scallingx = 1;
+        _offsetDisplay.scallingy = 1;
+        _offsetDisplay._scallingx = 16;
+        _offsetDisplay._scallingy = 16;
+        _offsetDisplay.isOffsetDisplay = true;
 
         _defaultOffsetDisplay = _offsetDisplay;
         __defaultDisplayMode = WAIT;
 
+
         this->leds = leds;
         this->saveleds = leds;
-#if HARDWARESPRITES == 1
-       // Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
-        target = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
+        memset(firstPixel[0].bytes, 0, 16 * 8);
+        memset(firstPixel[1].bytes, 0, 16 * 8);
+        memset(firstPixel[2].bytes, 0, 16 * 8);
+        firstPixel[0].bytes[16 + NBIS2SERIALPINS] = 255;
+        firstPixel[1].bytes[16 + NBIS2SERIALPINS] = 255;
+        firstPixel[2].bytes[16 + NBIS2SERIALPINS] = 255;
+#if nb_components > 3
+        firstPixel[3].bytes[16 + NBIS2SERIALPINS] = 255;
+
 #endif
 
-#ifdef __HARDWARE_MAP
-    _defaulthmap=(uint16_t *)malloc(  NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2+2);
-    if(!_defaulthmap)
-    {
-        Serial.printf("no memory\n");
-    }
-    else
-    {
-        calculateMapping(_defaultOffsetDisplay);
-    }
-   #ifdef  _HARDWARE_SCROLL_MAP
-          _hmapscroll=(uint16_t *)malloc(  NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2+2);
-            if(!_hmapscroll)
+        // isRunOnCore=false;
+        runCore = 3;
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY |I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE))  > 0        
+            if (mapLed == NULL)
             {
-                Serial.printf("no memory\n");
+                ESP_LOGD(TAG, "Using default mapping function");
+                mapLed = __default__mapping;
+                _offsetDisplay=_defaultOffsetDisplay;
             }
-   #endif
+                
 #endif
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
 
-#ifdef MULTIPLE_LEDSBUFFER
-        if (leds != NULL)
+        ESP_LOGD(TAG, "creating map array");
+        _defaulthmap = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
+        if (!_defaulthmap)
         {
-            for (int i = 0; i < NBIS2SERIALPINS * 8; i++)
-                ledsstripsorigin[(i % 2 == 0) ? i + 1 : i - 1] = &leds[i * NUM_LEDS_PER_STRIP * nb_components];
+            Serial.printf("no memory\n");
         }
         else
         {
-            for (int i = 0; i < NBIS2SERIALPINS * 8; i++)
-            {
-                ledsstripsorigin[i] = (uint8_t *)malloc(NUM_LEDS_PER_STRIP * nb_components);
-                if (!ledsstripsorigin[i])
-                {
-                    printf("not enough memory strip %d\n", i);
-                    return;
-                }
-                else
-                {
-                    memset(ledsstripsorigin[i], 0, NUM_LEDS_PER_STRIP * nb_components);
-                }
-            }
+
+            ESP_LOGD(TAG, "calculate mapping");
+            calculateDefaultMapping();
+            // calculateOffsetDisplay(_defaultOffsetDisplay);
+            // calculateMapping(_defaultOffsetDisplay);
+            ESP_LOGD(TAG, " mapping done");
+        }
+ #endif      
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
+        ESP_LOGD(TAG, "create scroll mapping");
+        _hmapscroll = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
+        if (!_hmapscroll)
+        {
+            Serial.printf("no memory\n");
         }
 
 #endif
-        //this->num_strips=num_strips;
+ 
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERUPT_LINE) > 0
+        for (int i = 0; i < INTERUPT_NUM_LINE_MAX; i++)
+        {
+            offsetsx[i] = 0;
+            scalingx[i] = 1;
+            if(i>0)
+            scalingy[i] = 1;
+        }
+#endif
+        ESP_LOGD(TAG, "semaphore init");
+        if (I2SClocklessVirtualLedDriver_waitDisp == NULL)
+        {
+            I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10, 0);
+        }
+        // this->num_strips=num_strips;
         this->dmaBufferCount = dmaBufferCount;
+        ESP_LOGD(TAG, "Pins initiation");
         setPins(Pinsq, clock_pin, latch_pin);
+        ESP_LOGD(TAG, "I2S init");
         i2sInit();
+        ESP_LOGD(TAG, "DMA initiation");
         initDMABuffers();
+        ESP_LOGD(TAG, "End DMA initiation");
         driverInit = true;
+        ESP_LOGI(TAG, "driver initiated");
     }
 
-
- void initled(frameBuffer * framb, int *Pinsq, int clock_pin, int latch_pin)
- {
-        framebuff=framb;
-        useFrame=true;
-        initled(framb->getFrametoDisplay(),  Pinsq,  clock_pin,  latch_pin);
-
- }
-    //private:
+    void initled(frameBuffer *framb, int *Pinsq, int clock_pin, int latch_pin)
+    {
+        framebuff = framb;
+        useFrame = true;
+        ESP_LOGD(TAG, "Init leds with framebuffer");
+        initled(framb->frames[0], Pinsq, clock_pin, latch_pin);
+    }
+    // private:
     volatile int dmaBufferActive = 0;
     volatile bool wait;
-    displayMode __displayMode,__defaultDisplayMode;
+    displayMode __displayMode, __defaultDisplayMode;
     volatile int ledToDisplay;
-    // volatile int oo=0;   
-    uint8_t *leds,*saveleds;
+    volatile int ledToDisplay_out;
+    uint8_t *leds, *saveleds;
 
-    int dmaBufferCount = 2; //we use two buffers
+    int dmaBufferCount = 2; // we use two buffers
     volatile bool transpose = false;
 
     volatile int num_strips;
     volatile int num_led_per_strip;
-    //int clock_pin;
+
     int brigthness;
 
     int i2s_base_pin_index;
 
-    //int nb_components;
-
     I2SClocklessVirtualLedDriverDMABuffer **DMABuffersTransposed = NULL;
-    //buffer array for the regular way
-    I2SClocklessVirtualLedDriverDMABuffer *DMABuffersTampon[4];
+    // buffer array for the regular way
+    I2SClocklessVirtualLedDriverDMABuffer *DMABuffersTampon[__NB_DMA_BUFFER + 2];
 
     I2SClocklessVirtualLedDriverDMABuffer *allocateDMABuffer(int bytes)
     {
@@ -1587,7 +1701,7 @@ void calculateMapping(OffsetDisplay off)
     static void i2sStop(I2SClocklessVirtualLedDriver *cont)
     {
 
-        //delay(1);
+        // delay(1);
         esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
         ets_delay_us(16);
         (&I2S0)->conf.tx_start = 0;
@@ -1598,33 +1712,32 @@ void calculateMapping(OffsetDisplay off)
         cont->i2sReset();
 
         cont->isDisplaying = false;
-       // cont->leds=cont->saveleds;
+        // cont->leds=cont->saveleds;
         /*
          We have finished to display the strips
          */
-        //ets_delay_us(1000);
-        if(cont->__displayMode==NO_WAIT and cont->wasWaitingtofinish == true)
+        // ets_delay_us(1000);
+        if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
         {
-            cont->wasWaitingtofinish=false;
-             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+            cont->wasWaitingtofinish = false;
+            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
         }
         if (cont->isWaiting)
         {
-           // printf("on debloqu\n");
+            // printf("on debloqu\n");
             xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
         }
-       // printf("hehe\n");
-       
+        // printf("hehe\n");
     }
 
     void putdefaultlatch(uint16_t *buff)
     {
-        //printf("dd%d\n",NBIS2SERIALPINS);
+        // printf("dd%d\n",NBIS2SERIALPINS);
         uint16_t mask1 = 1 << NBIS2SERIALPINS;
         for (int i = 0; i < 24 * nb_components; i++)
         {
-            buff[NUM_VIRT_PINS + i * (NUM_VIRT_PINS + 1) - 1 - 5] = mask1; //0x8000;
-            //buff[NUM_VIRT_PINS+i*(NUM_VIRT_PINS+1)]=0x02;
+            buff[NUM_VIRT_PINS + i * (NUM_VIRT_PINS + 1) - 1 - 5] = mask1; // 0x8000;
+            // buff[NUM_VIRT_PINS+i*(NUM_VIRT_PINS+1)]=0x02;
         }
     }
 
@@ -1632,7 +1745,7 @@ void calculateMapping(OffsetDisplay off)
     {
 
         uint16_t mas = 0xFFFF & (~(0xffff << (NBIS2SERIALPINS)));
-        //printf("mas%d\n",mas);
+        // printf("mas%d\n",mas);
         for (int j = 0; j < 8 * nb_components; j++)
         {
 
@@ -1650,19 +1763,6 @@ void calculateMapping(OffsetDisplay off)
     /*
      Transpose the pixel, as the function is static and all the variables are not static or global, we need to provide all of them.
      */
-
-    //    void transpose16x1_noinline2(uint8_t y,uint16_t *B,uint16_t mask,uint16_t mask2,int stripNumber) {
-    //
-    //        *((uint16_t*)(B)) =   (*((uint16_t*)(B))& mask) | ((uint16_t)((y &   128)>>7) <<stripNumber);
-    //        *((uint16_t*)(B+5)) =   (*((uint16_t*)(B+5))& mask) | ((uint16_t)((y & 64)>>6) <<stripNumber);
-    //        *((uint16_t*)(B+6)) =   (*((uint16_t*)(B+6))& mask) | ((uint16_t)((y & 32)>>5) <<stripNumber);
-    //        *((uint16_t*)(B+11)) =   (*((uint16_t*)(B+11))& mask) | ((uint16_t)((y& 16)>>4)<<stripNumber);
-    //        *((uint16_t*)(B+12)) =   (*((uint16_t*)(B+12))& mask) | ((uint16_t)((y& 8)>>3) <<stripNumber);
-    //        *((uint16_t*)(B+17)) =   (*((uint16_t*)(B+17))& mask) | ((uint16_t)((y& 4)>>2) <<stripNumber);
-    //        *((uint16_t*)(B+18)) =   (*((uint16_t*)(B+18))& mask) | ((uint16_t)((y& 2)>>1) <<stripNumber);
-    //        *((uint16_t*)(B+23)) =   (*((uint16_t*)(B+23))& mask) | ((uint16_t)(y & 1) <<stripNumber);
-    //
-    //    }
 
     void i2sStart(I2SClocklessVirtualLedDriverDMABuffer *startBuffer)
     {
@@ -1685,16 +1785,16 @@ void calculateMapping(OffsetDisplay off)
         /*
          If we do not use the regular showpixels, then no need to activate the interupt at the end of each pixels
          */
-        //if(transpose)
+        // if(transpose)
         (&I2S0)->int_ena.out_eof = 1;
 
         (&I2S0)->int_ena.out_total_eof = 1;
         esp_intr_enable(_gI2SClocklessDriver_intr_handle);
 
-        //We start the I2S
+        // We start the I2S
         (&I2S0)->conf.tx_start = 1;
 
-        //Set the mode to indicate that we've started
+        // Set the mode to indicate that we've started
         isDisplaying = true;
     }
 
@@ -1711,35 +1811,37 @@ void calculateMapping(OffsetDisplay off)
     // static void IRAM_ATTR interruptHandler(void *arg);
 };
 
-
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 {
 
     // REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG( 0 )) & 0xffffffc0) | 0x3f);
-    //return;
+    // return;
     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)arg;
 
-    if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ST_V, I2S_OUT_EOF_INT_ST_S))
+    if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ST_S, I2S_OUT_EOF_INT_ST_S))
     {
         cont->framesync = !cont->framesync;
+
+        // cont->ledToDisplay_in[cont->ledToDisplay_out]=cont->ledToDisplay+1;
+        // cont->ledToDisplay_inbuffer[cont->ledToDisplay_out]=cont->dmaBufferActive;
 
         if (((I2SClocklessVirtualLedDriver *)arg)->transpose)
         {
             cont->ledToDisplay++;
             if (cont->ledToDisplay < cont->num_led_per_strip)
             {
-#ifndef MULTIPLE_LEDSBUFFER
-               // loadAndTranspose(cont->leds, cont->_offsetDisplay, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->r_map, cont->g_map, cont->b_map);
-               loadAndTranspose(cont);
-#else
-                loadAndTranspose2(cont->leds, cont->ledsstrips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map);
-#endif
-                if (cont->ledToDisplay == (cont->num_led_per_strip - 3)) //here it's not -1 because it takes time top have the change into account and it reread the buufer
+
+                loadAndTranspose(cont);
+
+                if (cont->ledToDisplay_out == (cont->num_led_per_strip - (__NB_DMA_BUFFER))) // here it's not -1 because it takes time top have the change into account and it reread the buufer
                 {
-                    cont->DMABuffersTampon[cont->dmaBufferActive]->descriptor.qe.stqe_next = &(cont->DMABuffersTampon[3]->descriptor);
+                    cont->DMABuffersTampon[(cont->dmaBufferActive) % __NB_DMA_BUFFER]->descriptor.qe.stqe_next = &(cont->DMABuffersTampon[__NB_DMA_BUFFER + 1]->descriptor);
+                    // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=cont->dmaBufferActive;
                 }
-                cont->dmaBufferActive = (cont->dmaBufferActive + 1) % 2;
+
+                cont->dmaBufferActive = (cont->dmaBufferActive + 1) % __NB_DMA_BUFFER;
             }
+            cont->ledToDisplay_out++;
         }
         else
         {
@@ -1753,58 +1855,49 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
         }
     }
 
-    if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ST_V, I2S_OUT_TOTAL_EOF_INT_ST_S))
+    if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ST_S, I2S_OUT_TOTAL_EOF_INT_ST_S))
     {
 
-        //        portBASE_TYPE HPTaskAwoken = 0;
-        //            xSemaphoreGiveFromISR(((I2SClocklessVirtualLedDriver *)arg)->I2SClocklessVirtualLedDriver_semDisp, &HPTaskAwoken);
-        //            if(HPTaskAwoken == pdTRUE) portYIELD_FROM_ISR();
-        // cont->isDisplaying = false;
+        // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=9999;
         cont->i2sStop(cont);
-        /*
-      if(cont->isWaiting)
-        {
-                 portBASE_TYPE HPTaskAwoken = 0;
-          xSemaphoreGiveFromISR(((I2SClocklessVirtualLedDriver *)arg)->I2SClocklessVirtualLedDriver_sem, &HPTaskAwoken);
-            if(HPTaskAwoken == pdTRUE) portYIELD_FROM_ISR();
-            //xSemaphoreGive(I2SClocklessVirtualLedDriver_sem);
-          
-        }*/
     }
+
     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
 }
 
-
- static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
+static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 {
 
-   uint32_t x, y,t;
+    uint32_t x, y, t;
 #if NBIS2SERIALPINS >= 8
-    uint32_t  x1, y1;
+    uint32_t x1, y1;
 #endif
-    uint32_t aa,cc,ff;
+#if NBIS2SERIALPINS >= 4
+    uint32_t ff;
+#endif
+    uint32_t aa, cc;
     uint32_t ff2;
-    aa=AA;
-    cc=CC;
-    ff=FF;
-   ff2=FF2;
-  // ff2=ff>>4;
+    aa = AAA;
+    cc = CCC;
+    #if NBIS2SERIALPINS >= 4
+    ff = FFF;
+    #endif
+    ff2 = FFF2;
     y = *(unsigned int *)(A);
 #if NBIS2SERIALPINS >= 4
     x = *(unsigned int *)(A + 4);
 #else
-   x = 0;
+    x = 0;
 #endif
 #if NBIS2SERIALPINS >= 8
     y1 = *(unsigned int *)(A + 8);
-    #if NBIS2SERIALPINS >= 12
-          x1 = *(unsigned int *)(A + 12);
-      #else
-         x1 = 0;
-      #endif
-
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
 #endif
 
+#endif
 
     // pre-transform x
 #if NBIS2SERIALPINS >= 4
@@ -1831,23 +1924,18 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
     t = (y1 ^ (y1 >> 14)) & cc;
     y1 = y1 ^ t ^ (t << 14);
 #endif
- 
 
-
-//#define FF (0xF0F0F0F0L)
-//#define FF2 (0x0F0F0F0FL)
     // final transform
 #if NBIS2SERIALPINS >= 4
-t = (x & ff) | ((y >> 4) & ff2);
- //   t = (x & ff) | ((y & ff )>> 4);
+    t = (x & ff) | ((y >> 4) & ff2);
+
     y = ((x << 4) & ff) | (y & ff2);
-//    y = ((x << 4) & ff) | (( ( y<< 4 ) & ff) >>4 );
+
     x = t;
- #else
+#else
     x = ((y >> 4) & ff2);
-    y =  (y & ff2);
-    //x = t;
- 
+    y = (y & ff2);
+
 #endif
 
 #if NBIS2SERIALPINS >= 8
@@ -1856,641 +1944,1373 @@ t = (x & ff) | ((y >> 4) & ff2);
     t = (x1 & ff) | ((y1 >> 4) & ff2);
     y1 = ((x1 << 4) & ff) | (y1 & ff2);
     x1 = t;
-   #else
-      x1 = ((y1 >> 4) & FF2);
-      y1 = (y1 & FF2);
- #endif
-  #endif
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
 
-  
 #if NBIS2SERIALPINS >= 8
-/*
-    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
-    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
-    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
-    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
-    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
-    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
-    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
-    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
-*/
-    *((uint16_t *)(B)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
-    *((uint16_t *)(B + 48)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
-    *((uint16_t *)(B + 2 * 48)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
-    *((uint16_t *)(B + 3 * 48)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
-    *((uint16_t *)(B + 4 * 48)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
-    *((uint16_t *)(B + 5 * 48)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
-    *((uint16_t *)(B + 6 * 48)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
-    *((uint16_t *)(B + 7 * 48)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
-   #else
-   /*
-    *((uint16_t *)(B)) = (uint16_t)((x & 0xff000000) >> 24);
-    *((uint16_t *)(B + 48)) = (uint16_t)((x & 0xff0000) >> 16);
-    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x & 0xff00)  >> 8);
-    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x & 0xff );
-    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y & 0xff000000) >> 24);
-    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y & 0xff0000) >> 16);
-    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y & 0xff00)  >> 8);
-    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y & 0xff) ;
-*/
-/* no need for erasing the othe bytes maybe we could also make it different by looking at something like &x[2] would need to see the resulting assembly code*/
 
-    *((uint16_t *)(B)) = (uint16_t)((x) >> 24);
-    *((uint16_t *)(B + 48)) = (uint16_t)((x) >> 16);
-    *((uint16_t *)(B + 2 * 48)) = (uint16_t)((x)  >> 8);
-    *((uint16_t *)(B + 3 * 48)) = (uint16_t)(x  );
-    *((uint16_t *)(B + 4 * 48)) = (uint16_t)((y) >> 24);
-    *((uint16_t *)(B + 5 * 48)) = (uint16_t)((y) >> 16);
-    *((uint16_t *)(B + 6 * 48)) = (uint16_t)((y)  >> 8);
-    *((uint16_t *)(B + 7 * 48)) = (uint16_t)(y ) ;
- 
-     #endif
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    //******
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    //*************
+
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    //******
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+#else
+    x = 0;
+#endif
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+
+    // pre-transform x
+#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+#endif
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+
+    // final transform
+#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+#endif
+    //  B+=370;
+    // A+=16;
+    // }
 }
 
-
-
-//static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map)
-static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION) == 0
+static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 {
 
-uint8_t *ledt=driver->leds;
-OffsetDisplay offdisp=driver->_offsetDisplay;
-uint16_t *buff=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
-int ledtodisp=driver->ledToDisplay;
-uint8_t *mapg=driver->__green_map;
-uint8_t *mapr=driver->__red_map;
-uint8_t *mapb=driver->__blue_map;
-uint8_t *mapw=driver->__white_map;
-uint8_t *r_map= driver->r_map;
-uint8_t *g_map = driver->g_map;
-uint8_t *b_map=driver->b_map;
-
-
-
-//§uint8_t *ledt, OffsetDisplay offdisp, uint16_t *buff, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, uint8_t *r_map, uint8_t *g_map, uint8_t *b_map
-Lines firstPixel[nb_components];
-
- uint16_t led_tmp=ledtodisp;
-
-     #ifdef _LEDMAPPING
-        //#ifdef __SOFTWARE_MAP
-            uint8_t *poli ;
-        //#endif
-   #else
-    uint8_t *poli = ledt + ledtodisp * nb_components;
+#if CORE_DEBUG_LEVEL >= 5
+    driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
+#endif
+    uint8_t *ledt = driver->leds;
+    uint16_t *buff = (uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
+    #if((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_NONE)
+    int ledtodisp = driver->ledToDisplay;
     #endif
+    #ifndef __HARDWARE_BRIGHTNESS
+        uint8_t *mapg = driver->__green_map;
+        uint8_t *mapr = driver->__red_map;
+        uint8_t *mapb = driver->__blue_map;
+    #endif
+#ifdef _USE_PALETTE
+    uint8_t *palette = driver->palette;
+#endif
+#if nb_components > 3
+    uint8_t *mapw = driver->__white_map;
+#endif
+#if STATICCOLOR == 0
+    uint8_t *r_map = driver->r_map;
+    uint8_t *g_map = driver->g_map;
+    uint8_t *b_map = driver->b_map;
+#endif
+    Lines *firstPixel = driver->firstPixel;
+
+    uint8_t *poli_b, *poli;
+    #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+     uint8_t   *_poli;
+    #endif
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+
+    _poli = ledt + ledtodisp * _palette_size;
+#else
+
+#if ((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
+    uint16_t _led_tmp = ledtodisp;
+    //#if !((I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0)
+    uint16_t led_tmp;
+    //#endif
+#endif
+
+#endif
     buff += OFFSET;
-    //jump en deux
-    #ifdef _LEDMAPPING
-        led_tmp+=NUM_LEDS_PER_STRIP;
-    #else
-      poli += NUM_LEDS_PER_STRIP * nb_components;
-    #endif
+    // jump en deux
 
+    //.for()
 
-    
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    for (int pin74HC595 = 0; pin74HC595 < 8; pin74HC595++)
     {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
 
+#if ((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
+        led_tmp = _led_tmp;
+#endif
 
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+        poli = _poli;
+#endif
+#if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
+        int pin = (pin74HC595) << 4;
+#else
+        int pin = (pin74HC595 ^ 1) << 4;
+#endif
+        for (int vpin = 0; vpin < NBIS2SERIALPINS; vpin++)
+        {
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE
+            poli = ledt + driver->mapLed(led_tmp) * _palette_size;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE
+            poli = ledt + driver->remapStatic() * _palette_size;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+            poli = ledt + *(driver->_hmapoff);
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+            poli = ledt + *(driver->_hmapoff);
+#endif
 
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE
+            uint16_t val;
+            driver->_hmapoff = &val;
+            val = driver->mapLed(led_tmp);
+            poli = ledt + driver->remapStatic() * _palette_size;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
+            poli = ledt + *(driver->_hmapoff);
+#endif
+
+#ifdef _USE_PALETTE
+                              poli_b = palette + *(poli)*nb_components;
+#else
+            poli_b = poli;
+#endif
+
+#if STATICCOLOR == 1
+#ifndef __HARDWARE_BRIGHTNESS
+            firstPixel[p_g].bytes[pin + vpin] = mapg[*(poli_b + 1)];
+            firstPixel[p_r].bytes[pin + vpin] = mapr[*(poli_b)];
+            firstPixel[p_b].bytes[pin + vpin] = mapb[*(poli_b + 2)];
+#else
+
+            firstPixel[p_g].bytes[pin + vpin] = *(poli_b + 1);
+            firstPixel[p_r].bytes[pin + vpin] = *(poli_b);
+            firstPixel[p_b].bytes[pin + vpin] = *(poli_b + 2);
+
+#endif
+
+#else
+#ifndef __HARDWARE_BRIGHTNESS
+            firstPixel[g_map[8 * vpin]].bytes[pin + vpin] = mapg[*(poli_b + 1)];
+            firstPixel[r_map[8 * vpin]].bytes[pin + vpin] = mapr[*(poli_b)];
+            firstPixel[b_map[8 * vpin]].bytes[pin + vpin] = mapb[*(poli_b + 2)];
+#else
+            firstPixel[g_map[8 * vpin]].bytes[pin + vpin] = *(poli_b + 1);
+            firstPixel[r_map[8 * vpin]].bytes[pin + vpin] = *(poli_b);
+            firstPixel[b_map[8 * vpin]].bytes[pin + vpin] = *(poli_b + 2);
+#endif
+#endif
 #if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+            firstPixel[3].bytes[pin + vpin] = mapw[*(poli_b + 3)];
 #endif
 
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
+            // pin++;
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE
+            led_tmp += I2S_OFF_MAP;
 #endif
-        
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE
+            led_tmp += I2S_OFF_MAP;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+            driver->_hmapoff++;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE
+            driver->_hmapoff++;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+            driver->_hmapoff++;
+#endif
+#if (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
+            driver->_hmapoff++;
+#endif
+
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+            poli += I2S_OFF;
+#endif
+        }
+#if  ((I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE ) or (    (I2S_MAPPING_MODE & 0xFFF) == I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)
+        _led_tmp += NUM_LEDS_PER_STRIP;
+#endif
+#if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_NONE) > 0
+        _poli += NUM_LEDS_PER_STRIP * _palette_size;
+#endif
     }
 
     transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+
     transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
     transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
 #if nb_components > 3
     transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
 #endif
 
-    //on revient strip 1
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF3_MAP;
-    #else
-        poli -= I2S_OFF3;
-    #endif
+#if CORE_DEBUG_LEVEL >= 5
+    driver->_times[driver->ledToDisplay] = ESP.getCycleCount() - driver->_times[driver->ledToDisplay];
+#endif
+}
 
-    buff++;
+#else // function instead of reading memory
+static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
+{
+#if CORE_DEBUG_LEVEL >= 5
+    driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
+#endif
+    int led_tmp;
+    uint8_t *ledt = driver->leds;
+    uint16_t *buff = (uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
+    int ledtodisp = driver->ledToDisplay;
+    uint8_t *mapg = driver->__green_map;
+    uint8_t *mapr = driver->__red_map;
+    uint8_t *mapb = driver->__blue_map;
+    Lines *firstPixel = driver->firstPixel;
+#if STATICCOLOR == 0
+    uint8_t *r_map = driver->r_map;
+    uint8_t *g_map = driver->g_map;
+    uint8_t *b_map = driver->b_map;
+#endif
+    buff += OFFSET;
 
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    for (int pin74HC595 = 0; pin74HC595 < 8; pin74HC595++)
     {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
 
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
+        int pin = (pin74HC595 ^ 1) << 4;
+        int vPin = pin74HC595 << 4;
+        for (int pinEsp32 = 0; pinEsp32 < NBIS2SERIALPINS; pinEsp32++)
+        {
+            Pixel p = driver->pixelCalc(ledtodisp, pinEsp32, vPin);
+#if STATICCOLOR == 1
+#ifndef __HARDWARE_BRIGHTNESS
+            firstPixel[p_g].bytes[pin + pinEsp32] = mapg[p.raw[1]];
+            firstPixel[p_r].bytes[pin + pinEsp32] = mapr[p.raw[0]];
+            firstPixel[p_b].bytes[pin + pinEsp32] = mapb[p.raw[2]];
+#else
+            firstPixel[p_g].bytes[pin + pinEsp32] = p.raw[1];
+            firstPixel[p_r].bytes[pin + pinEsp32] = p.raw[0];
+            firstPixel[p_b].bytes[pin + pinEsp32] = p.raw[2];
 #endif
 
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
+#else
+#ifndef __HARDWARE_BRIGHTNESS
+            firstPixel[g_map[8 * pinEsp32]].bytes[pin + pinEsp32] = mapg[p.raw[1]];
+            firstPixel[r_map[8 * pinEsp32]].bytes[pin + pinEsp32] = mapr[p.raw[0]];
+            firstPixel[b_map[8 * pinEsp32]].bytes[pin + pinEsp32] = mapb[p.raw[2]];
+#else
+            firstPixel[g_map[8 * pinEsp32]].bytes[pin + pinEsp32] = p.raw[1];
+            firstPixel[r_map[8 * pinEsp32]].bytes[pin + pinEsp32] = p.raw[0];
+            firstPixel[b_map[8 * pinEsp32]].bytes[pin + pinEsp32] = p.raw[2];
 #endif
-        
+#endif
+        }
     }
-    firstPixel[0].bytes[NBIS2SERIALPINS] = 255;
-    firstPixel[1].bytes[NBIS2SERIALPINS] = 255;
-    firstPixel[2].bytes[NBIS2SERIALPINS] = 255;
-#if nb_components > 3
-    firstPixel[3].bytes[NBIS2SERIALPINS] = 255;
-#endif
+
     transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
+
     transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
     transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
 #if nb_components > 3
     transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
 #endif
+#if CORE_DEBUG_LEVEL >= 5
+    driver->_times[driver->ledToDisplay] = ESP.getCycleCount() - driver->_times[driver->ledToDisplay];
+#endif
+}
 
-    //on va en strip 4
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF4_MAP;
-    #else
-    poli -= I2S_OFF4;
-    #endif
-
-    buff++;
-
-    firstPixel[0].bytes[NBIS2SERIALPINS] = 0;
-    firstPixel[1].bytes[NBIS2SERIALPINS] = 0;
-    firstPixel[2].bytes[NBIS2SERIALPINS] = 0;
-#if nb_components > 3
-    firstPixel[3].bytes[NBIS2SERIALPINS] = 0;
 #endif
 
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+static void showPixelsTask(void *pvParameters)
+{
+    I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
+    if (cont->_gI2SClocklessDriver_intr_handle != NULL)
     {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-           #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
+        esp_intr_free(cont->_gI2SClocklessDriver_intr_handle);
     }
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip3
-
-    #ifdef _LEDMAPPING
-        led_tmp-= I2S_OFF3_MAP;
-    #else
-    poli -= I2S_OFF3;
-    #endif
-    buff++;
-
- 
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    ESP_LOGV(TAG, "setting interupt handler");
+    esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, cont, &cont->_gI2SClocklessDriver_intr_handle);
+    if (e != ESP_OK)
     {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        
-            #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-
+        ESP_LOGE(TAG, "Impossible to create interupt allocation");
+        return;
     }
+    ESP_LOGV(TAG, "interupt handler set on core %d", xPortGetCoreID());
 
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip6
-    #ifdef _LEDMAPPING
-     led_tmp-=I2S_OFF4_MAP;
-    #else
-    poli -= I2S_OFF4;
-    #endif
-    buff++;
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
+    for (;;)
     {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        cont->___showPixels();
     }
-
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip5
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF3_MAP;
-    #else
-    poli -= I2S_OFF3;
-    #endif
-    buff++;
-
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-        #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-    }
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip8
-    #ifdef _LEDMAPPING
-        led_tmp-=I2S_OFF4_MAP;
-    #else
-    poli -= I2S_OFF4;
-    
-    #endif
-    buff++;
-
-
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-            #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-
-    }
-
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-    //on va en strip7
-    #ifdef _LEDMAPPING
-    led_tmp-=I2S_OFF3_MAP;    
-    #else
-    poli -= I2S_OFF3;
-    #endif
-    buff++;
-  
-
-    for (int pin = 0; pin < NBIS2SERIALPINS; pin++)
-    {
-         #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                poli = driver->leds + driver->mapLed(led_tmp) * nb_components;
-            #endif
-            #ifdef __HARDWARE_MAP
-                #ifdef HARDWARE_SCROLL
-                   poli = driver->leds + driver->remap( *(driver->_hmapoff),offdisp)*nb_components;
-                #else
-                #ifdef _HARDWARE_SCROLL_MAP
-                 poli = driver->leds + *(driver->_hmapoff)*nb_components;
-                 #else
-                poli = driver->leds + *(driver->_hmapoff);
-                 #endif
-               
-                 #endif
-            #endif
-            #ifdef __HARDWARE_MAP_PROGMEM
-                 poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
-            #endif
-        #endif
-
-
-        #if STATICCOLOR == 1
-        firstPixel[p_g].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[p_r].bytes[pin] = mapr[*(poli)];
-        firstPixel[p_b].bytes[pin] = mapb[*(poli + 2)];
-
-        #else
-        firstPixel[g_map[8 * pin]].bytes[pin] = mapg[*(poli + 1)];
-        firstPixel[r_map[8 * pin]].bytes[pin] = mapr[*(poli )];
-        firstPixel[b_map[8 * pin]].bytes[pin] = mapb[*(poli + 2)];
-        #endif
-#if nb_components > 3
-        firstPixel[3].bytes[pin] = mapw[*(poli + 3)];
-#endif
-
- #ifdef _LEDMAPPING
-            #ifdef __SOFTWARE_MAP
-                led_tmp+=I2S_OFF_MAP;
-            #endif
-        #else
-         poli += I2S_OFF;
-        #endif
-         #ifdef __HARDWARE_MAP
-    driver->_hmapoff++;
-#endif
-        
-    }
-    transpose16x1_noinline2(firstPixel[0].bytes, (uint8_t *)(buff));
-    transpose16x1_noinline2(firstPixel[1].bytes, (uint8_t *)(buff + 192));
-    transpose16x1_noinline2(firstPixel[2].bytes, (uint8_t *)(buff + 384));
-#if nb_components > 3
-    transpose16x1_noinline2(firstPixel[3].bytes, (uint8_t *)(buff + 576));
-#endif
-
-
-
-
-
-
 }
