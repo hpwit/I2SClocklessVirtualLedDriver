@@ -27,5 +27,6 @@ jobs:
           platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
           sketch-names: gettingstarted.ino,gettingstartedFastLED.ino,gettingstartedRGBW.ino,panelhardwarescroll.ino # Comma separated list of sketch names (no path required) or patterns to use in build
           board-name: esp32
+          required-libraries: FastLED
           set-build-path: true 
 
