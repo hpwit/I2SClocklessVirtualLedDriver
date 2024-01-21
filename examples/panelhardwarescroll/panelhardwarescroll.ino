@@ -1,6 +1,5 @@
 #define NBIS2SERIALPINS 6
 #define NUM_LEDS_PER_STRIPS 256
-#define USE_FASTLED
 #define LED_WIDTH 123
 #define LED_HEIGHT 48
 

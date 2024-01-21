@@ -2,6 +2,8 @@
 
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
+
+
 ### What kind of led do you want to drive
 This library is a new take on driving ws2812 leds with I2S on an esp32. It allows to drive up to 120 strips !!! leds in parallel of  
 * RGB:
@@ -11,7 +13,7 @@ This library is a new take on driving ws2812 leds with I2S on an esp32. It allow
 * RGBW 
     * SK6812. 
 
-If you are using RGB led type then this library is fully compatible with fastLED library objects
+If you are using RGB led type then this library is fully compatible with FastLED library objects
 
 
 ### Why have I rewritten the library ?
@@ -44,7 +46,15 @@ To do this feat you will need to get some ICs
 
 You'll find the schematics within the 'extra' folder of this library.
 
-I personally use it to drive my panel 16x369 leds but still have space for an I2C Nintenda controller and SD card reader.
+I personally use it to drive my panels 5904=123x48 (16 strips of 369 leds) and a 12288=128x96 (48 16x16 panels)  but still have space for an I2C Nintenda controller and SD card reader.
+
+
+### Pixel object
+In FastLED ``CRGB`` and ``CHSV`` objects exist, they represent data in RGB or CHSV color space. These are made of 3 bytes (24 bits)
+
+In this library there is a similar object ``Pixel`` which is equivalent to ``CRGB``. But it can be changed at compile time.
+
+
 
 ### Array of strips
 In most leds driver librairies you declare each strip attached to one pin, one line at a time.
