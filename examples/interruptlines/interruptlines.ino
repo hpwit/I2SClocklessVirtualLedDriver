@@ -85,7 +85,7 @@ void loop()
   RUN_SKETCH_FOR("offset", 5000, {
     for (int i = 0; i < 96; i++)
     {
-      offd.offsetsx[i] = 64 * sin(offset * PI / 200);
+      driver.offsetsx[i] = 64 * sin(offset * PI / 200);
     }
 
     driver.showPixels(offd);

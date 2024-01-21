@@ -74,7 +74,7 @@ void resetOffSetDisplay()
   offd.rotation = 0;
   offd.enableLoopx = false;
   offd.enableLoopy = false;
-  offd.scalling = 1;
+  offd.scaling = 1;
 }
 
 int offset = 0;

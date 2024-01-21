@@ -18,7 +18,6 @@ If you are using RGB led type then this library is fully compatible with FastLED
 
 ### Why have I rewritten the library ?
 I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
-
 But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
 * led mapping
 * color palette
@@ -30,7 +29,6 @@ But the main reason is the way I wanted to drive the leds. I haev tried to put m
 * duplication
 * emulate 'line interrupts' (retro programers will understand)
 * Options to avoid artifacts if you're have interrupt intensive code
-
 
 
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
