@@ -1,22 +1,21 @@
-#define NBIS2SERIALPINS 4 //the number of virtual pins here mavimum 32 strips
-#define STATIC_COLOR_GRB 1 //set the strip color
-#define NUM_LEDS_PER_STRIP 50
+#define NBIS2SERIALPINS 6 //the number of virtual pins here mavimum 6x8=48 strips
+#define NUM_LEDS_PER_STRIP 256 
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
-#define CLOCK_PIN 16
-#define LATCH_PIN 26
-#define NUM_STRIPS 32
+#define NUM_STRIPS (NBIS2SERIALPINS * 8)
 #define USE_FASTLED
 #include "I2SClocklessVirtualLedDriver.h"
+#define LATCH_PIN 27
+#define CLOCK_PIN 26
 //here we have 3 colors per pixel
 CRGB leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];
 
-int pins[16]={0,2,4,5};
+int Pins[6]={14,12,13,25,33,32}; 
 
 I2SClocklessVirtualLedDriver driver;
 void setup() {
     Serial.begin(115200);
     
-  driver.initled(leds,pins,CLOCK_PIN,LATCH_PIN);
+  driver.initled(leds,Pins,CLOCK_PIN,LATCH_PIN);
     driver.setBrightness(10);
     
 }

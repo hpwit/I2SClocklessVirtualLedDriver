@@ -15,9 +15,21 @@ If you are using RGB led type then this library is fully compatible with fastLED
 
 
 ### Why have I rewritten the library ?
-I have rewritten the library out of the FastLED framework  to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
+I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
 
-But the main reason is the way I wanted to drive the leds. Indeed the library gives you two more options that can prove to be useful. One of the mode could reminder the older of us to some old school stuff.
+But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
+    * led mapping
+    * color palette
+    * ease the use of the second core
+    * framebuffer
+    * non blocking capabilities
+    * 'live led' calculation
+    * scrolling, rotating, scaling
+    * duplication
+    * emulate 'line interrupts' (retro programers will understand)
+    * Options to avoid artifacts if you're have interrupt intensive code
+
+
 
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
 
@@ -244,12 +256,14 @@ if you do this
 showPixels(NO_WAIT);
 showPixels(NO_WAIT);
 ```
-then the ssocn showPixels will wait for the first one to end before starting the second one.
+then the showPixels will wait for the first one to end before starting the second one.
+
+
+### Use of the second core
+Depending on your 
 
 
 ### 'HARDWARE SCROLLING'
-to enable HARDWARE SCORLLING
-#define  ENABLE_HARDWARE_SCROLL 
 Old term for a nice trick. The idea is to do a remapping of the leds within the driver directly so that the leds are displayed in another order. Pixels are pushed one at a time, and the normal way to do it is by going led 0,1,2,3 ....,N
 Let's say that I want to 'scroll' by 5 pixels all the leds. Normally you would move leds 4->N-1 into 0,N-5 and then copy led 0=>led N-4 act. and then do the fastled.show().
 The way I do it is to push within the driver led 4,5,6,7, ...., N-1,0,1,2,3 by calculating each time which pixels needs to be displayed using a simple algorithm about something along this `lednumber=> (lednumber+scroll)%N` (then a bit more complicated to take into account snake arrangement or not ,...)
@@ -262,25 +276,26 @@ struct OffsetDisplay
     int offsety;
     int panel_height;
     int panel_width;
+    int image_height;
+    int image_width;
+    float scalling;
+    int xc;
+    int yc;
+    float rotation;
+    bool enableLoopx;
+    bool enableLoopy;
+    ....
 };
 ```
 At the initiation of the leds a default Offdisplay is created with certain values. You can get this default object with `getDefaultOffset();`.
 
-In the example `snakewithhardwarescroll.ino` each strip is treated as 'individual' and each snake will go around a single strip
+I
 
 #### Defining a panel
 To be able to 'hardware scroll' in all directions you need to define how you panel is setup.
 for instance if you have a panel 100 leds wide 20 leds height `panel_height=20` and `panel_witdh=100`.
 If you are using mutilple strips you have two parameters 
 NB: these parameters need to be put before `#include "I2SClocklessLedDriver.h"` :
-
-`SNAKEPATTERN`
-* `#define SNAKEPATTERN 0` if your strip are not in snake pattern.
-* `#define SNAKEPATTERN 1` if your strip are arange in snake pattern **this is the default you do not need to put it in your program**
-
-`ALTERNATEPATTERN`
-* `#define ALTERNATEPATTERN 0` if the all the strip start on the same side
-* `#define ALTERNATEPATTERN 1` if the all the strip start on alternate side  **this is the default you do not need to put it in your program**
 
 
 #### `showPixels(OffDisplay offset)`:
@@ -292,16 +307,12 @@ Same function as before, where you can set the led buffer you want to display.
 #### Is it reallly needed ?
 Maybe not but fun (humm maybe not that fun lol) to make but great results.
 
- #### Examples:
- 
-* `gettingstarted.ino`: an example to use 16 parallel strips of 256 leds 
-* `gettingstartedFastLED.ino`: an example to use 16 parallel strips of 256 leds using FastLED objects 
-* `gettingstartedRGBW.ino`: an example to use 16 parallel strips of 256 leds of RGBW leds
-* `Dithering`; how to use the showPixels(uint8_t *leds) to easly do dithering (just an example)
-* `snakewithhardwarescroll.ino`: an example of use of the showPixel(OffsetDisplay offset) to do the snake
-* `panelhardwarescroll.ino`: an example of hardware scrolling x and y direction
+
 
  
+
+
+
 
 ## Artifacts, DMA, second core, transposition, ...
 

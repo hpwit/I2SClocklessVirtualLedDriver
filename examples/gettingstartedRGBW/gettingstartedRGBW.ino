@@ -1,13 +1,12 @@
 #define NBIS2SERIALPINS 4 //the number of virtual pins here mavimum 32 strips
-#define STATIC_COLOR_RGBW 1 //set the strip color
 #define NUM_LEDS_PER_STRIP 50
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
-#define CLOCK_PIN 16
-#define LATCH_PIN 26
 #define NUM_STRIPS 32
 #define COLOR_RGBW
 //here we have 4 colors per pixel
 #include "I2SClocklessVirtualLedDriver.h"
+#define CLOCK_PIN 16
+#define LATCH_PIN 26
 Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];
 
 int pins[16]={0,2,4,5,12,13,14,15,16,18,19,21,22,23,25,26};

@@ -1,57 +1,166 @@
-#include "FastLED.h"
-#define NBIS2SERIALPINS 4 //the number of virtual pins here mavimum 32 strips
-#define STATIC_COLOR_GRB 1 //set the strip color
-#define NUM_LEDS_PER_STRIP 360
-#define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
-#define CLOCK_PIN 16
-#define LATCH_PIN 26
-#define NUM_STRIPS 32
-#define  I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY
-#include "I2SClocklessVirtualLedDriver.h"
-//here we have 3 colors per pixel
-uint8_t leds[NUM_STRIPS*NUM_LEDS_PER_STRIP*3];
+#define NBIS2SERIALPINS 6
+#define NUM_LEDS_PER_STRIPS 256
+#define USE_FASTLED
+#define LED_WIDTH 123
+#define LED_HEIGHT 48
 
-int pins[16]={0,2,4,5};
+#define I2S_MAPPING_MODE (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY)
+#include "I2SClocklessVirtualLedDriver.h"
+
+#define NUM_LEDS (LED_HEIGHT * LED_WIDTH)
+#include "pic.h"
+#define LATCH_PIN 27
+#define CLOCK_PIN 26
+Pixel leds[LED_HEIGHT * LED_WIDTH + 1]; // 48*256=12288 leds 36,864 bytes
+
+int Pins[6] = {14, 12, 13, 25, 33, 32};
 
 I2SClocklessVirtualLedDriver driver;
-
 OffsetDisplay offd;
+
+uint16_t mapfunction(uint16_t pos)
+{
+  int panelnumber = pos / 256;
+  int datainpanel = pos % 256;
+  int yp = panelnumber / 8;
+  int Xp = panelnumber % 8;
+  int Y = yp;
+  int X = Xp;
+
+  int x = datainpanel % 16;
+  int y = datainpanel / 16;
+
+  if (y % 2 == 0)
+  {
+    Y = Y * 16 + y;
+    X = X * 16 + x;
+  }
+  else
+  {
+    Y = Y * 16 + y;
+    X = X * 16 + 16 - x - 1;
+  }
+
+  return Y * 16 * 8 + X;
+}
+int trainstart = 0;
 
 void setup()
 {
+  // put your setup code here, to run once:
   Serial.begin(115200);
+  // driver.setPixelCalc(&functionCalc);
 
-  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
-  driver.setBrightness(20);
-  for (int j = 0; j < NUM_STRIPS; j++)
-  {
-     leds[NUM_LEDS_PER_STRIP * j] = CRGB::Red;
-    for (int i = 1; i < j + 2; i++)
-    {
-      leds[i + NUM_LEDS_PER_STRIP * j] = CRGB::Green;
-    }
-    leds[17+NUM_LEDS_PER_STRIP * j] = CRGB::Blue;
-  }
-  driver.showPixels();
-  delay(1000); 
+  driver.initled(lapin001, Pins, CLOCK_PIN, LATCH_PIN);
+  driver.setMapLed(&mapfunction);
+  driver.setBrightness(30);
   offd = driver.getDefaultOffset();
-  offd.panel_width=120; 
-  offd.panel_height=48;
-
-
+  offd.panel_width = 128;
+  offd.panel_height = 96;
+  offd.image_height = LED_HEIGHT;
+  offd.image_width = LED_WIDTH;
+  offd.offsetx = 128 / 2 - LED_WIDTH / 2;
+  offd.offsety = 96 / 2 - LED_HEIGHT / 2;
+  offd.enableLoopx = false;
+  offd.enableLoopy = false;
 }
 
-int off = 0;
-long time1, time2, time3;
+void resetOffSetDisplay()
+{
+  offd.xc = 64;
+  offd.yc = 48;
+
+  offd.offsetx = 128 / 2 - LED_WIDTH / 2;
+  offd.offsety = 96 / 2 - LED_HEIGHT / 2;
+  offd.rotation = 0;
+  offd.enableLoopx = false;
+  offd.enableLoopy = false;
+  offd.scalling = 1;
+}
+
+int offset = 0;
 void loop()
 {
-  
-  offd.offsetx = 120*cos(3.14*off/360);
-  offd.offsety = 120*sin(3.14*off/360);
-  time2 = ESP.getCycleCount();
-  driver.showPixels(offd); 
-  time3 = ESP.getCycleCount();
-  Serial.printf("Calcul pixel fps:%.2f   showPixels fps:%.2f   Total fps:%.2f \n", (float)240000000 / (time2 - time1), (float)240000000 / (time3 - time2), (float)240000000 / (time3 - time1));
-  off++;
-  delay(50);
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("scrollx", 5000, {
+    offd.offsetx = 64 + 64 * sin(offset * PI / 200);
+
+    driver.showPixels(offd);
+    offset++;
+  });
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("scrolly ", 5000, {
+    offd.offsety = 48 + 48 * sin(offset * PI / 200);
+
+    driver.showPixels(offd);
+
+    offset++;
+  });
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("rotation ", 5000, {
+    offd.rotation = offset * PI / 200;
+    driver.showPixels(offd);
+
+    offset++;
+  });
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("enable Loopx ", 5000, {
+    offd.enableLoopx = true;
+    offd.rotation = offset * PI / 200;
+
+    driver.showPixels(offd);
+
+    offset++;
+  });
+
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("enable Loopy ", 5000, {
+    offd.enableLoopy = true;
+    offd.rotation = offset * PI / 200;
+    driver.showPixels(offd);
+    offset++;
+  });
+
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("enable Loopy  and loopy", 5000, {
+    offd.enableLoopy = true;
+    offd.enableLoopx = true;
+    offd.rotation = offset * PI / 200;
+    driver.showPixels(offd);
+    offset++;
+  });
+
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("Scalling", 5000, {
+    offd.scaling = 3 * sin(offset * PI / 200);
+    driver.showPixels(offd);
+    offset++;
+  });
+
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("Scalling and rotation", 5000, {
+    offd.scaling = 3 * sin(offset * PI / 200);
+    offd.rotation = offset * PI / 200;
+    driver.showPixels(offd);
+    offset++;
+  });
+
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("Scalling and rotation", 10000, {
+    offd.scaling = 3 * sin(offset * PI / 200);
+    offd.enableLoopx = true;
+    offd.enableLoopy = true;
+    offd.rotation = offset * PI / 200;
+    driver.showPixels(offd);
+    offset++;
+  });
 }
