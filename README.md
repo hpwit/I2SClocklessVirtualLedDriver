@@ -18,16 +18,16 @@ If you are using RGB led type then this library is fully compatible with fastLED
 I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
 
 But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
-    * led mapping
-    * color palette
-    * ease the use of the second core
-    * framebuffer
-    * non blocking capabilities
-    * 'live led' calculation
-    * scrolling, rotating, scaling
-    * duplication
-    * emulate 'line interrupts' (retro programers will understand)
-    * Options to avoid artifacts if you're have interrupt intensive code
+* led mapping
+* color palette
+* ease the use of the second core
+* framebuffer
+* non blocking capabilities
+* 'live led' calculation
+* scrolling, rotating, scaling
+* duplication
+* emulate 'line interrupts' (retro programers will understand)
+* Options to avoid artifacts if you're have interrupt intensive code
 
 
 
