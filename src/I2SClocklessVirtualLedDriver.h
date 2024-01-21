@@ -3221,13 +3221,15 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #if CORE_DEBUG_LEVEL >= 5
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
 #endif
-    int led_tmp;
-    uint8_t *ledt = driver->leds;
+    //int led_tmp;
+   // uint8_t *ledt = driver->leds;
     uint16_t *buff = (uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
     int ledtodisp = driver->ledToDisplay;
+#ifndef __HARDWARE_BRIGHTNESS
     uint8_t *mapg = driver->__green_map;
     uint8_t *mapr = driver->__red_map;
     uint8_t *mapb = driver->__blue_map;
+#endif
     Lines *firstPixel = driver->firstPixel;
 #if STATICCOLOR == 0
     uint8_t *r_map = driver->r_map;
