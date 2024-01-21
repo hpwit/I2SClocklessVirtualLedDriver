@@ -7,7 +7,7 @@
 #include "I2SClocklessVirtualLedDriver.h"
 
 #define NUM_LEDS (LED_HEIGHT * LED_WIDTH)
-#include "pic.h"
+#include "pics.h"
 #define LATCH_PIN 27
 #define CLOCK_PIN 26
 Pixel leds[LED_HEIGHT * LED_WIDTH + 1]; // 48*256=12288 leds 36,864 bytes
