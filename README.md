@@ -327,31 +327,69 @@ driver.showPixels();
 driver.showPixels(leds2);
 ```
 
-### And if you do not wanna wait while displaying ? 
-`void showPixels(displayMode dispmode)` and `void showPixels(displayMode dispmode,uint8_t *newleds)` are two functions that can allow you to display the pixels without having to wait
-
+## Let's talk about framerate
+It's kind of a goal to display as fast as it's possible to have a good framerate. The  calculation of the framerate is not only base on the time to display the leds but also the time 'create' the led array.
+i.e
 ```C
-showPixels(NO_WAIT); //it will start displaying the leds but giving you back the process 
- showPixels(NO_WAIT,newleds); //same here
+//display total  tiome/fps fpstotal
+HOW_LONG("Total framerate", {
+    //display time/fps to calculate the array fpscalc
+    HOW_LONG("calcualtion led", {
+    for(int i=0;i<NUM_LEDS;i++)
+    {
+        //do something
+    }
+    });
+    //will display time/fps display the array fpsdisp
+    HOW_LONG("display", {
+        driver.showPixels();
+    });
+});
 
- //i.e if you do this
-//A
-showPixels(NO_WAIT); 
-delay(20);
-//B
- //between A and B it will have passed either 20 or the time of the showPixels (if it's longer than 20ms)
+// 1/fpstotal=1/fpscalc+1/fpsdisp
 ```
 
-if you do this
+## How do we improve the framerate
+
+### On the same core 
+Even if the showPixels() takes time, actually the CPU is not busy during the time. Indeed even if to send a pixel (RGB) it takes 30us (microseconds) but the calculation of the buffer takes for 5us to 23us depending on the number of virtual pins to calculate.
+As a consequence we are loosing CPU time. Hopefully the esp32 rune several tasks at the sametime thanks to RTOS.
+
+the driver allows to take advantage of this quite easily. `void showPixels(displayMode dispmode)` 
+
 ```C
-showPixels(NO_WAIT);
-showPixels(NO_WAIT);
+
+......
+ driver.showPixels(NO_WAIT);
+....
+
 ```
-then the showPixels will wait for the first one to end before starting the second one.
+
+In the example `waitnowaitmode.ino` we display 256 leds (max framerate 130fps). If you run the code (even without any leds attached) it will display `75fps` for the showPixels() and `112fps` for the `showPixels(NO_WAIT)`.
+Why is it not 130 fps the max ? because the calculation of the leds array is done wiht the same ressource as the one to calculate the leds buffers to be sent. Both 'compiting' for the same CPU ressource. But we get a 50% speed increase.
+
+### Enable the use of the second core
+The esp32 has two cores and the driver simplify the usage of the second core.
+The main core is core 1 on which runs the application bu default. The second core (core 0) is less used. We can tell the driver to run driver.showPixels() on the second core by `enableShowPixelsOnCore(int core)`
+
+```C
+
+......
+//move the display on core 0
+ driver.enableShowPixelsOnCore(0);
+ //from now on all the showPixels() will be done on core 0
+....
 
 
-### Use of the second core
-Depending on your 
+//move the display back on core 1
+ driver.enableShowPixelsOnCore(1);
+```
+In the example `secondcore.ino`  without the second core we are still at `75fps` and `129fps` (close to the max) when using the two cores.
+In the latest case both the calculation and the display occurs at the sametime.
+
+:arrow_forward: NB: by construct using `driver.enableShowPixelsOnCore(1)` all the following `showPixels()` will be like `showPixels(NO_WAIT)`  
+
+
 
 
 ### 'HARDWARE SCROLLING'

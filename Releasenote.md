@@ -4,6 +4,8 @@
 * Code simplification
 * minor bug fixes
 
+
+
 ##Release Note 25 January 2024 v2.0.0
 * adding mapping
 * redone scrolling, scaling, rotation
