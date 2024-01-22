@@ -54,7 +54,7 @@ int offset = 0;
 void loop()
 {
   RUN_SKETCH_FOR("without mapping", 5000, {
-    memset(leds, 0, LED_HEIGHT * LED_WIDTH * 3);
+    memset((uint8_t*)leds, 0, LED_HEIGHT * LED_WIDTH * 3);
     for (int i = 0; i < LED_HEIGHT; i++)
     {
       for (int j = 0; j < i + 1; j++)
