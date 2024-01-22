@@ -2,6 +2,10 @@
 
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
+Hello led afficionados !! Here is the new version of the Virtual pins library. In reality this version of the library had been sitting more or less finalized on my laptop for a while. I need to take the time and energy to write the correct examples and of course update the documentation. 
+I have been writing led drivers for the past couple of years now while I was building [my 123x48 panel](https://hackaday.io/project/158268-5904-leds-panel). 
+It inspired me to create the I2S driver implemented in FastLED and then the Virtual pins library.
+I am also planning to merge all my different led libraries (4 of them in total)
 
 
 ### What kind of led do you want to drive
@@ -15,10 +19,8 @@ This library is a new take on driving ws2812 leds with I2S on an esp32. It allow
 
 If you are using RGB led type then this library is fully compatible with FastLED library objects
 
-
 ### Why have I rewritten the library ?
-I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
-But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
+I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
 * led mapping
 * color palette
 * ease the use of the second core
@@ -32,6 +34,7 @@ But the main reason is the way I wanted to drive the leds. I haev tried to put m
 
 
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
+Some of the 'maybe most' of the functionailities will never been used be it was fun and intersting to implement.
 
 ## Let's start
 ### How can 120 strips can de driven in parallel with an esp32 !!!
@@ -51,8 +54,65 @@ I personally use it to drive my panels 5904=123x48 (16 strips of 369 leds) and a
 In FastLED ``CRGB`` and ``CHSV`` objects exist, they represent data in RGB or CHSV color space. These are made of 3 bytes (24 bits)
 
 In this library there is a similar object ``Pixel`` which is equivalent to ``CRGB``. But it can be changed at compile time.
+```C
+#define COLOR_RGBW
 
+#include "I2SClocklessVirtualLedDriver.h"
+#define NUM_LEDS 200
 
+Pixel leds[NUM_LEDS];
+//here the Pixel is not RGB but RGBW hence this time it will be a 36 bits
+//it's still ocmpatible with the CRGB object 
+leds[0]=CRGB(233,23,44); 
+```
+in that case the following mapping will be done 
+W = min(R, G, B);
+R = R - W; 
+G = G - W;
+B = B - W;
+
+In the examples you will find some that integrate the FastLED objects.
+
+### MACROS that have nothing to do with led driving
+
+* ``HOW_LONG(name, func)`` : This macro will the time taken by a part of the code
+ex:
+```C
+HOW_LONG("Time taken", {
+//insert the code i.e
+driver.showPixels();
+
+});
+```
+
+the result  in the serial output:
+``The function *** Time taken *** took 100 ms or 10 fps``
+
+*  ``RUN_SKETCH_FOR(name, duration, func)``:  Execute part of the code for the duration in millisecondes
+ex:
+```C
+//it will run for 1000ms or 1s
+int offset=0;
+RUN_SKETCH_FOR("scroll", 1000 {
+    leds[offset]=CRGB::Red;
+    driver.showPixels();
+    offset++;
+});
+
+```
+
+*  ``RUN_SKETCH_N_TIMES(name, ntimes, func)``:  Execute part of the code N times
+ex:
+```C
+//it will run 100 times
+int offset=0;
+RUN_SKETCH_FOR("scroll", 100 {
+    leds[offset]=CRGB::Red;
+    driver.showPixels();
+    offset++;
+});
+
+```
 
 ### Array of strips
 In most leds driver librairies you declare each strip attached to one pin, one line at a time.
@@ -105,13 +165,15 @@ We are declaring that my `leds` array represent 4 strips of `NUM_LED_PER_STRIPS`
 
 #define NBIS2SERIALPINS 2  //the number of virtual pins
 
-#define STATIC_COLOR_GRB 1 //set the strip color
+//set the strip color order
+//by default RGB
 /* the other values
-STATIC_COLOR_RGB
-STATIC_COLOR_RBG
-STATIC_COLOR_GBR
-STATIC_COLOR_BGR
-STATIC_COLOR_BRG
+#define COLOR_RGB
+#define COLOR_RBG
+#define COLOR_GBR
+#define COLOR_BGR
+#define COLOR_BRG
+#define COLOR_RGBW
 */
 
 #define NUM_LEDS_PER_STRIP 256
@@ -131,7 +193,7 @@ I2SClocklessVirtualLedDriver driver;
 #### You are using RGB type leds
 RGB type leds store the information of the led over 3 bytes. `Red,Green,Blue`.  Hence the size in bytes of a led array of `NUM_LEDS` is `3xNUM_LEDS`
 ```C
-uint8_t leds[3*NUM_LEDS];
+Pixels leds[NUM_LEDS];
 
 //if you are using FastLED library this definition will be equivalent to the previous as the CRGB object is 3 bytes
 CRGB leds[NUM_LEDS];
@@ -141,7 +203,7 @@ CRGB leds[NUM_LEDS];
 #### You are using RGBW type leds
 This time to store the information of the led you will need 4 bytes `Red,Green,Blue,White` Hence the size in bytes of a led array of `NUM_LEDS` is `4xNUM_LEDS`
 ```C
-uint8_t leds[4*NUM_LEDS];
+Pixels leds[UM_LEDS];
 ```
 
 ### Driver functions
@@ -158,7 +220,7 @@ uint8_t leds[4*NUM_LEDS];
  ```C
  
 #define NBIS2SERIALPINS 2  //the number of virtual pins
-#define STATIC_COLOR_GRB 1 //set the strip color
+#define COLOR_GRB 1 //set the strip color
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
@@ -169,7 +231,7 @@ uint8_t leds[4*NUM_LEDS];
 
  I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; //equivalent of CRGB leds[NUM_LEDS_PER_STRIPS*NUM_STRIPS]
+ Pixels leds[NUM_STRIPS*NUM_LEDS_PER_STRIP]; //equivalent of CRGB leds[NUM_LEDS_PER_STRIPS*NUM_STRIPS]
  int pins[NBIS2SERIALPINS] ={0,2};
  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
  ```
@@ -177,7 +239,7 @@ uint8_t leds[4*NUM_LEDS];
  example 5: declaring 30 strips of 256 leds in RGBW
  ```C
  #define NBIS2SERIALPINS 4  //the number of virtual pins
-#define STATIC_COLOR_GRBW 1 //set the strip color to GRBW
+#define COLOR_GRBW 1 //set the strip color to GRBW
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
@@ -188,13 +250,35 @@ uint8_t leds[4*NUM_LEDS];
 
  I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[4*NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
  int pins[NBIS2SERIALPINS] ={0,2,12,13};
  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
  ```
- #### `setBrightness(int brightness)`:
+
+#### Other initialization functions:
+* `void initled(Pixel leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`
+*  `void initled(CRGB leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`
+*  `void initled(frameBuffer *leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)` this will be explained later on how to use a frameBuffer
+*  `void initled(int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`: you can initialized the driver without a led buffer.
+this is also used in the case of direct pixel calculation
+ ```C
+ Pixel led1[NUM_LEDS];
+ Pixel leds2[NUM_LEDS];
+driver.initled(pins,CLOCK_PIN,LATCH_PIN);
+
+...
+driver.showPixels(led1);
+...
+driver.showPixels(led2);
+ ```
+
+
+#### `setBrightness(int brightness)`:
  
  This function sets the default brightness for 0->255
+
+
+
  
 #### `setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)`:
  Set the color of a pixel 
@@ -221,19 +305,18 @@ This function allow set 'on the go' the pointer to the leds. This will help if y
 It can also be used to ease dithering see example `Dithering` (I need to work on a hardware implementation btw)
 ```C
 #define NBIS2SERIALPINS 4  //the number of virtual pins
-#define STATIC_COLOR_GRB 1 //set the strip color
+#define COLOR_GRB 1 //set the strip color
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
 #define LATCH_PIN 4
 #define NUM_STRIPS 30
- 
- #include "I2SClocklessVirtualLedDriver.h"
+#include "I2SClocklessVirtualLedDriver.h"
 
  I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP];  
- uint8_t leds2[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+ Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];  
+ Pixel leds2[NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
  int pins[NBIS2SERIALPINS] ={0,2,12,13};
  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
 

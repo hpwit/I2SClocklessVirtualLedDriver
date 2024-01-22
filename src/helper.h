@@ -23,7 +23,7 @@
         printf("End Sketch: %s after %.2fms\n", name, (float)(__timer2__ - __timer1__) / 240000); \
     }
 
-#define RUN_SKETCH_N_TIMES(name, duration, func)                                    \
+#define RUN_SKETCH_N_TIMES(name, ntimes, func)                                    \
     {                                                                               \
         printf("Start Sketch: %s\n", name);                                         \
         uint32_t __timer1__ = 0;                                                    \
