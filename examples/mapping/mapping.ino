@@ -80,5 +80,6 @@ void loop()
     driver.showPixels();
     trainstart++;
   });
+  //remove the mapping
   driver.setMapLed(NULL);
 }
