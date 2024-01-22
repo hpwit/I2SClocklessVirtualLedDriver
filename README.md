@@ -1,4 +1,4 @@
-[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;[![Badge Version](https://img.shields.io/badge/Release%20Note)](Releasenote.md)
+[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;[![Badge Version](https://img.shields.io/badge/release_note-blue)](Releasenote.md)
 
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
