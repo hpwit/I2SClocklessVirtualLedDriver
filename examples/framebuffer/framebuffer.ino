@@ -5,7 +5,6 @@
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8)
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
-#define USE_FASTLED
 #include "I2SClocklessVirtualLedDriver.h"
 #define _LATCH_PIN 27
 #define _CLOCK_PIN 26

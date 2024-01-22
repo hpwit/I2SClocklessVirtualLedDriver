@@ -256,8 +256,9 @@ typedef struct
     bool enableLoopy;
     int enableOption;
 } __OffsetDisplay;
-
+#if CORE_DEBUG_LEVEL >= 1
 static const char *TAG = "I2SClocklessVirtualLedDriver";
+#endif
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
 static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B);
 
@@ -361,7 +362,10 @@ public:
 
     inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
     {
+       if(newMapLed != NULL)
         mapLed = newMapLed;
+        else
+        mapLed=__default__mapping;
         ESP_LOGD(TAG, "calculate mapping");
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         calculateDefaultMapping();
