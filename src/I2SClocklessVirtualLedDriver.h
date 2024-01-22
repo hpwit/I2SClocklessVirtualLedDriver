@@ -372,6 +372,7 @@ public:
 #endif
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION) > 0
+#ifndef _USE_PALETTE
     Pixel (*pixelCalc)(uint16_t led, int pin, int virtualpin);
 
     void setPixelCalc(Pixel (*newPixelCalc)(uint16_t led, int pin, int virtualpin))
@@ -381,6 +382,17 @@ public:
         // calculateMapping(_defaultOffsetDisplay);
         ESP_LOGD(TAG, " mapping done");
     }
+#else
+    uint16_t (*pixelCalc)(uint16_t led, int pin, int virtualpin);
+
+    void setPixelCalc(uint16_t (*newPixelCalc)(uint16_t led, int pin, int virtualpin))
+    {
+        pixelCalc = newPixelCalc;
+        ESP_LOGD(TAG, "calculate mapping");
+        // calculateMapping(_defaultOffsetDisplay);
+        ESP_LOGD(TAG, " mapping done");
+    }
+#endif
 #endif
 
     bool driverInit = false;
@@ -832,7 +844,14 @@ public:
 #endif
 #endif
         // leds = newleds;
-        leds = saveleds;
+        if (useFrame)
+        {
+            leds = framebuff->getFrametoDisplay();
+        }
+        else
+        {
+            leds = saveleds;
+        }
         __displayMode = dispmode;
         _offsetDisplay = _defaultOffsetDisplay;
         __showPixels();
@@ -1027,12 +1046,13 @@ public:
             ESP_LOGE(TAG, "Driver not initialized");
             return;
         }
-
+#if !(I2S_MAPPING_MODE == I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION)
         if (leds == NULL)
         {
             ESP_LOGE(TAG, "no leds buffer defined");
             return;
         }
+#endif
 
         transpose = true;
         for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
@@ -1457,13 +1477,16 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
+        this->leds = leds;
+        this->saveleds = leds;
+        initled(Pinsq, clock_pin, latch_pin);
+    }
+
+    void initled(int *Pinsq, int clock_pin, int latch_pin)
+    {
         ESP_LOGI(TAG, "Start driver");
         driverInit = false;
         isOffsetDisplay = false;
-#ifdef MULTIPLE_LEDSBUFFER
-        allleds.init(ledsstripsorigin);
-        LEDS.init(ledsstripsorigin);
-#endif
         /*
         switch(cArr)
         {
@@ -1543,8 +1566,6 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         _defaultOffsetDisplay = _offsetDisplay;
         __defaultDisplayMode = WAIT;
 
-        this->leds = leds;
-        this->saveleds = leds;
         memset(firstPixel[0].bytes, 0, 16 * 8);
         memset(firstPixel[1].bytes, 0, 16 * 8);
         memset(firstPixel[2].bytes, 0, 16 * 8);
@@ -3221,8 +3242,8 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 #if CORE_DEBUG_LEVEL >= 5
     driver->_times[driver->ledToDisplay] = ESP.getCycleCount();
 #endif
-    //int led_tmp;
-   // uint8_t *ledt = driver->leds;
+    // int led_tmp;
+    // uint8_t *ledt = driver->leds;
     uint16_t *buff = (uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
     int ledtodisp = driver->ledToDisplay;
 #ifndef __HARDWARE_BRIGHTNESS
@@ -3236,6 +3257,9 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
     uint8_t *g_map = driver->g_map;
     uint8_t *b_map = driver->b_map;
 #endif
+#ifdef _USE_PALETTE
+    uint8_t *palette = driver->palette;
+#endif
     buff += OFFSET;
 
     for (int pin74HC595 = 0; pin74HC595 < 8; pin74HC595++)
@@ -3245,7 +3269,11 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
         int vPin = pin74HC595 << 4;
         for (int pinEsp32 = 0; pinEsp32 < NBIS2SERIALPINS; pinEsp32++)
         {
+#ifdef _USE_PALETTE
+            Pixel p = *(Pixel *)(palette + driver->pixelCalc(ledtodisp, pinEsp32, vPin) * nb_components);
+#else
             Pixel p = driver->pixelCalc(ledtodisp, pinEsp32, vPin);
+#endif
 #if STATICCOLOR == 1
 #ifndef __HARDWARE_BRIGHTNESS
             firstPixel[p_g].bytes[pin + pinEsp32] = mapg[p.raw[1]];

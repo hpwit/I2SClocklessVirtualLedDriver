@@ -5,6 +5,8 @@
 #define LED_HEIGHT 64
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
 #define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION
+#define _USE_PALETTE
+#define USE_FASTLED // to have the CHSV mapping
 #include "I2SClocklessVirtualLedDriver.h"
 #define LATCH_PIN 27
 #define CLOCK_PIN 26
@@ -19,12 +21,12 @@ void createcolors()
 {
   for (int i = 0; i < 256; i++)
   {
-
-    colors[i] = Pixel(i, 0, 0);
+    CRGB d = CHSV(i, 255, 255);
+    colors[i] = d;
   }
 }
 
-Pixel functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
+uint16_t functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
 {
   // the pixel is the led ledtodisp on the strip number = pin*8+virtualpin
   long Y, X;
@@ -42,7 +44,7 @@ Pixel functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
     X = (virtualpin) + 16 - x - 1;
   }
 
-  return colors[(X + Y + offset) % 256];
+  return (X + Y + offset) % 256;
 }
 
 void setup()
@@ -50,6 +52,7 @@ void setup()
   Serial.begin(115200);
   driver.setPixelCalc(&functionCalc);
   driver.initled(Pins, CLOCK_PIN, LATCH_PIN);
+  driver.setPalette((uint8_t *)colors);
   driver.setBrightness(40);
   createcolors();
 }

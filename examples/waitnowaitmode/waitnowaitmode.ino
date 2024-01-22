@@ -46,8 +46,8 @@ void setup()
     driver.setBrightness(20);
     driver.setMapLed(&mapfunction);
     delay(2000);
-    RUN_SKETCH_N_TIMES("On one core", 10, {
-        HOW_LONG("total without second core", {
+    RUN_SKETCH_N_TIMES("normal code", 10, {
+        HOW_LONG("total wait mode", {
             for (int i = 0; i < NBIS2SERIALPINS * 16; i++)
             {
                 for (int j = 0; j < 8 * 16; j++)
@@ -59,9 +59,8 @@ void setup()
             driver.showPixels();
         });
     });
-    driver.enableShowPixelsOnCore(0);
-    RUN_SKETCH_N_TIMES("On two cores", 10, {
-        HOW_LONG("total with second core", {
+    RUN_SKETCH_N_TIMES("NO_WAIT", 10, {
+        HOW_LONG("total no_wait", {
             for (int i = 0; i < NBIS2SERIALPINS * 16; i++)
             {
                 for (int j = 0; j < 8 * 16; j++)
@@ -70,7 +69,7 @@ void setup()
                 }
             }
 
-            driver.showPixels();
+            driver.showPixels(NO_WAIT);
         });
     });
 }

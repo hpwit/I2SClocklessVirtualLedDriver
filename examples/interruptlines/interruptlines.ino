@@ -10,7 +10,7 @@
 #include "pics.h"
 #define LATCH_PIN 27
 #define CLOCK_PIN 26
-Pixel leds[LED_HEIGHT * LED_WIDTH + 1]; // 48*256=12288 leds 36,864 bytes
+Pixel leds[LED_HEIGHT * LED_WIDTH]; // 48*256=12288 leds 36,864 bytes
 
 int Pins[6] = {14, 12, 13, 25, 33, 32};
 
@@ -60,8 +60,6 @@ void setup()
   offd.image_width = LED_WIDTH;
   offd.offsetx = 128 / 2 - LED_WIDTH / 2;
   offd.offsety = 96 / 2 - LED_HEIGHT / 2;
-  offd.enableLoopx = true;
-  offd.enableLoopy = true;
 }
 
 void resetOffSetDisplay()
@@ -81,13 +79,32 @@ int offset = 0;
 void loop()
 {
   resetOffSetDisplay();
-  offset = 0;
-  RUN_SKETCH_FOR("offset", 5000, {
+  RUN_SKETCH_FOR("offset per line", 5000, {
     for (int i = 0; i < 96; i++)
     {
-      driver.offsetsx[i] = 64 * sin(offset * PI / 200);
+      driver.offsetsx[i] = 64 * sin((offset + i) * PI / 200);
     }
-
+    driver.showPixels(offd);
+    offset++;
+  });
+  resetOffSetDisplay();
+  offset = 0;
+  RUN_SKETCH_FOR("scaling per line", 5000, {
+    for (int i = 0; i < 96; i++)
+    {
+      driver.scalingx[i] = sin((offset + i) * PI / 200);
+    }
+    driver.showPixels(offd);
+    offset++;
+  });
+  resetOffSetDisplay();
+  offset = 0;
+  // offd.offsety
+  RUN_SKETCH_FOR("scaling per line", 10000, {
+    for (int i = 0; i < 96; i++)
+    {
+      driver.scalingy[i] = sin(((offset + i) % 96) * PI / 96);
+    }
     driver.showPixels(offd);
     offset++;
   });

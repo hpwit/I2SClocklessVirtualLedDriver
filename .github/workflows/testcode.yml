@@ -25,8 +25,7 @@ jobs:
         with:
           arduino-board-fqbn: esp32:esp32:esp32:DebugLevel=verbose,FlashMode=dio,FlashFreq=80,FlashSize=4M
           platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
-          required-libraries: FastLED
-          sketch-names: gettingstarted.ino,panelhardwarescroll.ino,interruptlines.ino # Comma separated list of sketch names (no path required) or patterns to use in build
-          board-name: esp32
+          sketch-names: gettingstarted.ino,panelhardwarescroll.ino,interruptlines.ino,framebuffer.ino,pixelpush.ino # Comma separated list of sketch names (no path required) or patterns to use in build
+         # board-name: esp32
           set-build-path: true 
 
