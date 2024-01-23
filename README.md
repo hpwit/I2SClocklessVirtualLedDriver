@@ -793,7 +793,7 @@ by adding this
 ```
 ![mapping](/extra/pictures/IMG_5403.HEIC)
 
-This it corrected
+It is corrected
 
 #### Impact of increasing the DMA buffers
 * PRO: 
@@ -801,7 +801,39 @@ This it corrected
     * it cvan be useful if you have several tasks in parallel on the same core to give other takss more time to execute as extending the DMA buffer has no impact on CPU usage
 * CON: It decreases the frame rate as each buffer takes longer to be sent
 
-## What is next ?
+## Infinite number of pixels
+
+The driver can act as a pixels pusher. In that case the value of the leds are calculated at runtime without having to store any led array.
+```C
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION //to activate the pixelpousher mode
+#include "I2SClocklessVirtualLedDriver.h"
+
+
+Pixel functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
+{
+    //calculate the pixels depending on it's position
+}
+void setup()
+{
+  Serial.begin(115200);
+  driver.setPixelCalc(&functionCalc);
+  driver.initled(Pins, CLOCK_PIN, LATCH_PIN); //nb: no need for a led  pointer in the initled
+  driver.showPixels();
+}
+
+```
+What can be done can be quite complex
+
+![mapping](/extra/pictures/pixelpush.GIF)
+
+Two examples `pixelpush.ino` and `pixelpushwithpalette.ino` 
+
+### Why do I say infinte pixels ?
+As this method do not require any led memory you can send pixels forever to an infinite set of strips.... :scream: :scream:
+
+
+## Can I get crazier !! => Interrupt lines
+Yes I can
 
 
 
