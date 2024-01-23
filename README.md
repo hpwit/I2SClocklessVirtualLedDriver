@@ -717,29 +717,89 @@ The `OffsetDisplay` struct has more attributes :
 ### About I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
 To do the scrolling it's more or less the same as the mapping you have several options
 
-* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY      : you need two array one for the mapping the second for the scroll
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY`      : you need two array one for the mapping the second for the scroll
     * PRO  : really fast during the led buffers creation (good if you have a lot of strips > 50)
     * CONS : uses a lot of memory; and the framerate is a bit reduced to calculate the SCROLL array
-* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE : only one big array for the mapping
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE` : only one big array for the mapping
     * PRO  : uses less memory; still efficient
     * CONS : more CPU intensive than the previous
-* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE  : everyting is done at runtime
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE`  : everyting is done at runtime
     * PRO  : no memory overhead
     * CONS : really CPU intensive (see chapter on optimizations)
-* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY : the mapping is in software pour the scroll arry is precalculated
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY` : the mapping is in software pour the scroll arry is precalculated
     * PRO  : uses less memory; really fast 
     * CONS : still uses memeory ,overhead during the calculation.
 
 The right option will depend on what the rest of your appplication is doing. for exmaple look at this video while the esp32 is receiving up to 73 universes and doign srcolling and rotations.
+
+
 [![Ivideo](http://img.youtube.com/vi/sYtVOU8Hpss/0.jpg)](https://youtu.be/sYtVOU8Hpss?si=r73hu0yQ29UCoF3r)
 
 
 ## Some Optimizations
 
 ### Artifacts due to interrupts
+Sometimes interrupts can distrub the pixel buffer calculations hence making some artifacts. A solution against that is to caculate several buffers in advance. BY defualt we have 2 dma buffers. this can be increase to cope with unwanted interupts.
 
+```C
+#define __NB_DMA_BUFFER 4 //here we increase the number of buffers from 2 to 4 increase this number as much as you need
 
+....
+#include "I2SClocklessVirtualLedDriver.h"
 
+```
+NB:If you define `__NB_DMA_BUFFER` to be equal to the number of led per strip you will calculate all the leds in a buffer (but it requires to much memory)
+
+### Reduce the time spent in the buffer creation
+If you remember when I have discussed about the fact that the showPixels is not always occupied with gives time for other processes to run. Well the less time we 'spent' in buffer calcualtion the better.for instance if you do not use gamma calculation and you can cope with a brightness that is a power of 2: 
+
+```C
+#define __BRIGHTNESS_BIT 5  //the max brightness will be 2^5=32
+
+....
+#include "I2SClocklessVirtualLedDriver.h"
+
+```
+it will drastically decrease the time of the buffer calculation
+
+### Increase the buffer length
+Why on earth to that ??????!!!!
+Sometimes despite the above improvement the time to calculate the buffer is longer the time needed to send the pixel hence the leds are not corrected and look duplicated.
+The ws281X leds do not need to receive all the pixel one after the other without pause. If you look at the data sheet you will see that if you wait less than 150us than the led will pass the new data like if it was sent just after.
+
+![mapping](/extra/pictures/IMG_5402.HEIC)
+
+If you activate the Verbose mode while uplaoding your sktech you will have this in the serial output:
+```
+7:46:55.946 -> Frame data:
+17:46:55.946 ->      - frame number:87
+17:46:55.946 ->      - interupt time min:32.39us
+17:46:55.946 ->      - interupt time max:33.38us
+17:46:55.946 ->      - interupt time average:32.71us
+17:46:55.946 ->      - nb of pixel with interuptime > 26.00us: 255
+17:46:55.946 -> Driver data (overall frames):
+17:46:55.946 ->      - nb of frames displayed:87
+17:46:55.946 ->      - nb of frames with pixels 'out of time':87
+17:46:55.946 ->      - max interuptime 34.17us
+17:46:55.946 ->      - max number of pixels out of interuptime in a frame:255
+17:46:55.978 ->      - proposed DMA extension:78
+```
+by adding this
+```C
+#define _DMA_EXTENSTION 78
+...
+
+#include "I2SClocklessVirtualLedDriver.h"
+```
+![mapping](/extra/pictures/IMG_5403.HEIC)
+
+This it corrected
+
+#### Impact of increasing the DMA buffers
+* PRO: 
+    * If you're using `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE` than you can manage to avoid artifacts
+    * it cvan be useful if you have several tasks in parallel on the same core to give other takss more time to execute as extending the DMA buffer has no impact on CPU usage
+* CON: It decreases the frame rate as each buffer takes longer to be sent
 
 ## What is next ?
 
