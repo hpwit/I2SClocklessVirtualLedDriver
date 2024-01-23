@@ -528,7 +528,8 @@ The idea of the driver is to provide a way to define the mapping function so tha
 for this driver you need to map the led number in the X,Y coordinates to the leds number of the strips.
 
 ![mapping](/extra/pictures/mapping.png)
-here is the correspondant mapping function.
+
+Here is the correspondant mapping function.
 ```C
 uint16_t mapfunction(int pos)
 {
@@ -545,7 +546,7 @@ uint16_t mapfunction(int pos)
 }
 ```
 
-### You Need to indicate to the driver that you will use mapping
+### You need to indicate to the driver that you will use mapping
 ```C
 #define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
 #include "I2SClocklessVirtualLedDriver.h"
@@ -593,12 +594,11 @@ Depending on your specific need you can choose the option that is more suitable.
 
 :arrow_forward: NB: `setMapLed(NULL)` will cancel the mapping. As you will see in `mapping.ino`
 
-## 'HARDWARE SCROLLING'
-Old term for a nice trick. The idea is to do a remapping of the leds within the driver directly so that the leds are displayed in another order. Pixels are pushed one at a time, and the normal way to do it is by going led 0,1,2,3 ....,N
-Let's say that I want to 'scroll' by 5 pixels all the leds. Normally you would move leds 4->N-1 into 0,N-5 and then copy led 0=>led N-4 act. and then do the fastled.show().
-The way I do it is to push within the driver led 4,5,6,7, ...., N-1,0,1,2,3 by calculating each time which pixels needs to be displayed using a simple algorithm about something along this `lednumber=> (lednumber+scroll)%N` (then a bit more complicated to take into account snake arrangement or not ,...)
 
-#### `OffsetDisplay` object:
+## What if I want to display a iamge larger or smaller than my panel ?
+Let's imagine that you want to display a 200x200 picture on a 32x32 led panel. You need to create an algortihm and then if you want to make thispicture scroll it's even more complicated. This driver allows you to do this with simple commands and even more.
+
+###  the `OffsetDisplay` object:
 ```C
 struct OffsetDisplay
 {
@@ -617,29 +617,102 @@ struct OffsetDisplay
     ....
 };
 ```
+
 At the initiation of the leds a default Offdisplay is created with certain values. You can get this default object with `getDefaultOffset();`.
 
-I
+### Defining a panel
+```C
+#define NBIS2SERIALPINS 6
+#define NUM_LEDS_PER_STRIPS 256
+#define PICTURE_WIDTH 256
+#define PICTURE_HEIGHT 256
 
-#### Defining a panel
-To be able to 'hardware scroll' in all directions you need to define how you panel is setup.
-for instance if you have a panel 100 leds wide 20 leds height `panel_height=20` and `panel_witdh=100`.
-If you are using mutilple strips you have two parameters 
-NB: these parameters need to be put before `#include "I2SClocklessLedDriver.h"` :
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY //to activate the option needed
+#include "I2SClocklessVirtualLedDriver.h"
+#include "pics.h" //which contains the image
+
+I2SClocklessVirtualLedDriver driver;
+OffsetDisplay offd;
+uint16_t mapfunction(uint16_t pos)
+{
+  int panelnumber = pos / 256;
+  int datainpanel = pos % 256;
+  int yp = panelnumber / 8;
+  int Xp = panelnumber % 8;
+  int Y = yp;
+  int X = Xp;
+
+  int x = datainpanel % 16;
+  int y = datainpanel / 16;
+
+  if (y % 2 == 0)
+  {
+    Y = Y * 16 + y;
+    X = X * 16 + x;
+  }
+  else
+  {
+    Y = Y * 16 + y;
+    X = X * 16 + 16 - x - 1;
+  }
+
+  return Y * 16 * 8 + X;
+}
+
+void setup()
+{
+  // put your setup code here, to run once:
+  Serial.begin(115200);
 
 
-#### `showPixels(OffDisplay offset)`:
-This function can help you scroll your leds without doing a mem copy.
+  driver.initled(picture, Pins, CLOCK_PIN, LATCH_PIN); //picture is the array of data in the pics.h
+  driver.setMapLed(&mapfunction);
+  driver.setBrightness(30);
+  offd = driver.getDefaultOffset(); //do not forget this
+  offd.panel_width = 128; //the physical width of the panel
+  offd.panel_height = 96; //the physical hieght of the panel
+  offd.image_height = PICTURE_HEIGHT;
+  offd.image_width = PICTURE_WIDTH;
+  driver.showPixels(offd);
+}
 
-#### `showPixels(uint8_t * leds,OffDisplay offset)`:
-Same function as before, where you can set the led buffer you want to display.
+```
 
-#### Is it reallly needed ?
-Maybe not but fun (humm maybe not that fun lol) to make but great results.
+### What happen if the image is smaller than the panel ?
+
+In the case of image smaller image than the panel the none existing pixels wxill be replaced by the data just after the image
+
+```C
+Pixel image[PICTURE_HEIGHT*PICTURE_WIDTH+1];
 
 
+image[PICTURE_HEIGHT*PICTURE_WIDTH]=CRGB::Red;
+ offd = driver.getDefaultOffset(); //do not forget this
+  offd.panel_width = 128; //the physical width of the panel
+  offd.panel_height = 96; //the physical hieght of the panel
+  offd.image_height = PICTURE_HEIGHT;
+  offd.image_width = PICTURE_WIDTH;
+  driver.showPixels(offd);
+```
+The image will display by the 'background' will be red
 
- 
+You can duplicate the image in X and Y direction
+
+```C
+  offd.enableLoopx = true; //the image will duplicate in X direction
+  offd.enableLoopy = true; //the imade will duplication in Y direction
+```
+
+
+###  Scrolling, rotaition, scaling
+The `OffsetDisplay` struct has more attributes :
+* `offsetx` and `offsety` : 
+* `scaling` : scale the image.try negatiuve number it will revese the image
+* `rotation` : rotation angle
+* `xc` and `yc` : set the rotation center
+
+![mapping](/extra/pictures/scroll_rotation.GIF)
+
 
 
 
