@@ -346,7 +346,7 @@ HOW_LONG("Total framerate", {
     });
 });
 
-// 1/fpstotal=1/fpscalc+1/fpsdisp
+// here is the formula to calculte the total framerate 1/fpstotal=1/fpscalc+1/fpsdisp
 ```
 
 ## How do we improve the framerate
@@ -412,12 +412,186 @@ If you're displaying a fast animation this would not be to much of an issue but 
 * use two frame buffers
 
 ## Framebuffer
-Here it is :smiley: like this driver simplify the use of the second core,
+Here it is :smiley: As this driver simplify the use of the second core, it simplifies the use of framebuffers.
+```C
+//use this instead of Pixel leds[NUM_LEDS]
+frameBuffer leds = frameBuffer(NUM_LEDS);
+...
+driver.initled(&leds, Pins, _CLOCK_PIN, _LATCH_PIN);
+//NB: it's initled(&leds,...  this time and not initled(led,...
+```
+The rest of your code will not change at all
+```C
+    for (int i = 0; i < NBIS2SERIALPINS * 16; i++)
+    {
+        for (int j = 0; j < 8 * 16; j++)
+        {
+            //here we write on buffer x
+            leds[i * (8 * 16) + (j) % (8 * 16)] = colors[offset % 3];
+        }
+    }
+    //we display buffer x, we change the writing buffer to x+1
+    driver.showPixels();
+    //now we write in buffer x+1
+    leds[54]=CRGB(25,48,79);
+    //we display buffer x+1 , we switch back the writing buffer to x
+    driver.showPixels();
+```
+:arrow_forward:if you initialized yuour leds with `framebuffer` Automatically upon calling `showPixels`:
+* The call will be switch to `NO_WAIT`
+* the driver will change the buffer on which you be writing
+
+hence in the following example at each iteration of the loop we write in another buffer that the one we are currently displaying.
+```C
+void loop()
+{
+    for(int i=0;i<NUM_LEDS;i++)
+    {
+        //do something with the leds
+    }
+    driver.showPixels();
+}
+```
+In the example `framebuffer.ino` I advice you to change `#define TEST_USE_FRAMEBUFFER 1` to `#define TEST_USE_FRAMEBUFFER 0` to see the effect of the overlap
+
+## Use of color palettes
+Even if the RBG leds allows you to display more than 16 millions colors, it can happen that you do not need that many colors. you would refer to a palette then.
+for instance if you have less than 256 colors, instead of having `Pixel leds[NUM_LED]` which take `3xNUM_LED` bytes you can define `uint8_t leds[NUM_LED]` whihc will take 3 times less memory.
+
+```C
+#define _USE_PALETTE //necessary to tell the driver to use palette
+#include "I2SClocklessVirtualLedDriver.h"
+...
+Pixel palette[256]; //or less if you do not use all 256 colors.
+uint8_t leds[NUM_LEDS];
+
+...
+void functionToFillThePalette(param ..)
+{
+    //do so
+}
+
+void setup()
+{
+    driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
+    driver.setPalette((uint8_t *)palette);
+}
+...
+
+driver.showPixels();
+```
+
+NB: the mapping between the leds value and the palette color is done at runtime => no need of extra memory. There is no creation od a temporary led array.
+
+### moving the palette instead of the pixels
+Like in our old game console, soem animation were made by switching palette. This is waht will happen if you change the palette. like in the example `colorpalete.ino`.
+In this case the animation is occuring because of the swift of the palette colors. I need to change 256 color valuies instead of recalculating 12000 leds. In this exmaple I am modifying the palette bu of course you could do this:
+```C
+
+Pixel palette1[256]; 
+Pixel palette2[256]; 
+...
+
+
+driver.setPalette((uint8_t *)palette1);
+driver.showPixels();
+
+driver.setPalette((uint8_t *)palette2);
+driver.showPixels();
+
+```
+
+### More than 256 colors palette ?
+You can create a 2bytes palette for a max of 65536 colors. in that case your leds array would need to be 2 bytes per leds
+
+```C
+#define _USE_PALETTE //necessary to tell the driver to use palette
+#define PALETTE_SIZE 2 //for a 2 bytes palette
+#include "I2SClocklessVirtualLedDriver.h"
+
+Pixel palette[11123];
+uint16_t leds[NUM_LEDS]; //still 1 third less memory than RGB led array
+void setup()
+{
+    driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
+    driver.setPalette((uint8_t *)palette);  //still the same call to match the palette
+}
+```
 
 
 
 ## Leds mappping
+When creating leds structures sometimes it can be hard to match how the leds informaiton is stored and what it physically represent. For instance you have a panel with a snake pattern or a set of 16x16 panels or something else. You can always write a map(x,y) function but the default is that you cannot manipulate the memory as you wish. THe mapping functions do not work for pictures or for artnet you need to reproduce the physical representation of the strip in your artnet software.
+The idea of the driver is to provide a way to define the mapping function so that in memory the leds are laid like your expect in (X,Y) cooridinate. the acutal mapping is done using calculation withoout touching the led array. Hence for instance you can define your artnet universes as a simple rectangle and it will display correctly.
 
+### How to define the mapping
+for this driver you need to map the led number in the X,Y coordinates to the leds number of the strips.
+
+![mapping](/extra/pictures/mapping.png)
+here is the correspondant mapping function.
+```C
+uint16_t mapfunction(int pos)
+{
+    int x=pos%8;
+    int y=pos/8;
+    if(y%2 == 0)
+    {
+        return y*8+x;
+    }
+    else
+    {
+        return (y+1)*8-x-1;
+    }
+}
+```
+
+### You Need to indicate to the driver that you will use mapping
+```C
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+#include "I2SClocklessVirtualLedDriver.h"
+#define LED_HEIGHT 45
+#define LED_WIDTH 14
+...
+
+uint16_t mapfunction(int pos)
+{
+    //your maapping function
+}
+
+....
+driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
+driver.setMapLed(&mapfunction);
+
+...
+for (int i=0;i<LED_WIDTH;i++)
+{
+    for(int j=0;j<LED_HEIGHT;j++)
+    {
+        leds[j*LED_WIDTH+i]=....   //here you're putting your leds in the usual X,Y coordinates
+    }
+}
+
+driver.showPixels();
+
+```
+
+Because the memory layout is exactly the one of the X,Y coordinate it makes manipulation easier and faster than doing `leds[map(i,j)]=...`
+
+please find a full code example in `mapping.ino`
+
+### About I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+There are two 'technical' options for the driver to deal with the 'hardware' mapping.
+
+* In memory `#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY`: once the `setMapLed` is executed, an array for the correspondance is created
+    * PRO: less CPU intensive
+    * CON: you need more memory
+* In software `#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE`: the mapping function is call during the interrupt function that creates the memory buffer.
+    * PRO: no need for more memory
+    * CON: more CPU intensive
+
+Depending on your specific need you can choose the option that is more suitable.
+
+:arrow_forward: NB: `setMapLed(NULL)` will cancel the mapping. As you will see in `mapping.ino`
 
 ## 'HARDWARE SCROLLING'
 Old term for a nice trick. The idea is to do a remapping of the leds within the driver directly so that the leds are displayed in another order. Pixels are pushed one at a time, and the normal way to do it is by going led 0,1,2,3 ....,N

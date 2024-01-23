@@ -2,9 +2,9 @@
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8)
 #define LED_WIDTH 128
-#define LED_HEIGHT 64
+#define LED_HEIGHT 96
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
-#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION
+#define I2S_MAPPING_MODE (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY)
 #define _USE_PALETTE
 #define USE_FASTLED // to have the CHSV mapping
 #include "I2SClocklessVirtualLedDriver.h"
@@ -14,7 +14,7 @@
 int Pins[6] = {14, 12, 13, 25, 33, 32};
 
 I2SClocklessVirtualLedDriver driver;
-
+uint8_t leds[NUM_LEDS];
 Pixel colors[256];
 void createcolors(int offset)
 {
@@ -25,36 +25,48 @@ void createcolors(int offset)
   }
 }
 
-uint16_t functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
+uint16_t mapfunction(uint16_t pos)
 {
-  // the pixel is the led ledtodisp on the strip number = pin*8+virtualpin
-  long Y, X;
-  int x = ledtodisp % 16;
-  int y = (ledtodisp >> 4);
+  int panelnumber = pos / 256;
+  int datainpanel = pos % 256;
+  int yp = panelnumber / 8;
+  int Xp = panelnumber % 8;
+  int Y = yp;
+  int X = Xp;
+
+  int x = datainpanel % 16;
+  int y = datainpanel / 16;
 
   if (y % 2 == 0)
   {
-    Y = (pin << 4) + y;
-    X = (virtualpin) + x;
+    Y = Y * 16 + y;
+    X = X * 16 + x;
   }
   else
   {
-    Y = (pin << 4) + y;
-    X = (virtualpin) + 16 - x - 1;
+    Y = Y * 16 + y;
+    X = X * 16 + 16 - x - 1;
   }
 
-  return (X + Y + offset) % 256;
+  return Y * 16 * 8 + X;
 }
 int coloroffset = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  driver.setPixelCalc(&functionCalc);
-  driver.initled(Pins, CLOCK_PIN, LATCH_PIN);
+  driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
   driver.setPalette((uint8_t *)colors);
+  driver.setMapLed(&mapfunction);
   driver.setBrightness(40);
   createcolors(0);
+  for (int i = 0; i < LED_WIDTH; i++)
+  {
+    for (int j = 0; j < LED_HEIGHT; j++)
+    {
+      leds[j * LED_WIDTH + i] = i + j;
+    }
+  }
 }
 
 void loop()
