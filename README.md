@@ -1,8 +1,8 @@
-[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;[![Badge Version](https://img.shields.io/badge/release_note-blue)](Releasenote.md)
+[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/badge/release_note-blue)](Releasenote.md)
 
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
-Hello led afficionados !! Here is the new version of the Virtual pins library. In reality this version of the library had been sitting more or less finalized on my laptop for a while. I need to take the time and energy to write the correct examples and of course update the documentation. 
+Hello led afficionados !! Here is the new version of the Virtual pins library. In reality this version of the library had been sitting more or less finalized on my laptop for a while. I needed to take the time and energy to write the correct examples and of course update the documentation. 
 I have been writing led drivers for the past couple of years now while I was building [my 123x48 panel](https://hackaday.io/project/158268-5904-leds-panel). 
 It inspired me to create the I2S driver implemented in FastLED and then the Virtual pins library.
 I am also planning to merge all my different led libraries (4 of them in total)
@@ -17,10 +17,10 @@ This library is a new take on driving ws2812 leds with I2S on an esp32. It allow
 * RGBW 
     * SK6812. 
 
-If you are using RGB led type then this library is fully compatible with FastLED library objects
+This library is fully compatible with FastLED library objects and its functions.
 
 ### Why have I rewritten the library ?
-I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
+I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. But the main reason is the way I wanted to drive the leds. I have tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
 * led mapping
 * color palette
 * ease the use of the second core
@@ -832,8 +832,33 @@ Two examples `pixelpush.ino` and `pixelpushwithpalette.ino`
 As this method do not require any led memory you can send pixels forever to an infinite set of strips.... :scream: :scream:
 
 
-## Can I get crazier !! => Interrupt lines
-Yes I can
+## Can I get crazier ? Yes => Interrupt lines
+Yes if I can :blush:.
+I just got a GameBoy couple of weeks ago (yes at my advance age). And I am a fan on demo programming on retro platforms. One of the common trick is to change the displayed picture based on line scan interrupts. I thought it coudl be fun to have this also on the driver.
+
+### The parameters you can change
+At each line you can change:
+* the offsetx
+* the scalingx
+* the scalingy
+
+See example `interruptlines.ino`
+
+```C
+#define I2S_MAPPING_MODE (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY | I2S_MAPPING_MODE_OPTION_INTERRUPT_LINE) // to activate the interrupts
+#include "I2SClocklessVirtualLedDriver.h"
+
+...
+driver.offsetsx[i]=...;
+driver.scalingx[i]=...;
+driver.scalingy[i]=....;
+
+driver.showPixels(offd);
+```
+
+While mixing all together you can do something like this:
+![mapping](/extra/pictures/interrupt.GIF)
+
 
 
 
