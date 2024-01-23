@@ -16,12 +16,11 @@ int Pins[6] = {14, 12, 13, 25, 33, 32};
 I2SClocklessVirtualLedDriver driver;
 
 Pixel colors[256];
-int offset = 0;
-void createcolors()
+void createcolors(int offset)
 {
   for (int i = 0; i < 256; i++)
   {
-    CRGB d = CHSV(i, 255, 255);
+    CRGB d = CHSV((i + offset) % 256, 255, 255);
     colors[i] = d;
   }
 }
@@ -46,6 +45,7 @@ uint16_t functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
 
   return (X + Y + offset) % 256;
 }
+int coloroffset = 0;
 
 void setup()
 {
@@ -54,14 +54,13 @@ void setup()
   driver.initled(Pins, CLOCK_PIN, LATCH_PIN);
   driver.setPalette((uint8_t *)colors);
   driver.setBrightness(40);
-  createcolors();
+  createcolors(0);
 }
 
 void loop()
 {
 
-  HOW_LONG("display", {
-    driver.showPixels();
-  });
-  offset++;
+  driver.showPixels();
+  coloroffset++;
+  createcolors(coloroffset);
 }

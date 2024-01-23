@@ -1,7 +1,11 @@
-[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;[![Badge Version](https://img.shields.io/badge/release_note-blue)](Releasenote.md)
+[![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/badge/release_note-blue)](Releasenote.md)
 
 # I2SClocklessVirtualLedDriver for esp32
 ## Introduction
+Hello led afficionados !! Here is the new version of the Virtual pins library. In reality this version of the library had been sitting more or less finalized on my laptop for a while. I needed to take the time and energy to write the correct examples and of course update the documentation. 
+I have been writing led drivers for the past couple of years now while I was building [my 123x48 panel](https://hackaday.io/project/158268-5904-leds-panel). 
+It inspired me to create the I2S driver implemented in FastLED and then the Virtual pins library.
+I am also planning to merge all my different led libraries (4 of them in total)
 
 
 ### What kind of led do you want to drive
@@ -13,12 +17,10 @@ This library is a new take on driving ws2812 leds with I2S on an esp32. It allow
 * RGBW 
     * SK6812. 
 
-If you are using RGB led type then this library is fully compatible with FastLED library objects
-
+This library is fully compatible with FastLED library objects and its functions.
 
 ### Why have I rewritten the library ?
-I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. Once totally done I will certainly re-merge it with the FasLED library.
-But the main reason is the way I wanted to drive the leds. I haev tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
+I have rewritten the library out of the FastLED framework to allow easier testing but also create a pixel pusher independant of the library you want to use. But the main reason is the way I wanted to drive the leds. I have tried to put more functionalities in the driver than the usual 'leds pusher'. Indeed this driver integrates:
 * led mapping
 * color palette
 * ease the use of the second core
@@ -28,10 +30,11 @@ But the main reason is the way I wanted to drive the leds. I haev tried to put m
 * scrolling, rotating, scaling
 * duplication
 * emulate 'line interrupts' (retro programers will understand)
-* Options to avoid artifacts if you're have interrupt intensive code
+* Options to avoid artifacts if you have interrupt intensive code
 
 
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
+Some of the 'maybe most' of the functionailities will never been used be it was fun and intersting to implement.
 
 ## Let's start
 ### How can 120 strips can de driven in parallel with an esp32 !!!
@@ -51,8 +54,65 @@ I personally use it to drive my panels 5904=123x48 (16 strips of 369 leds) and a
 In FastLED ``CRGB`` and ``CHSV`` objects exist, they represent data in RGB or CHSV color space. These are made of 3 bytes (24 bits)
 
 In this library there is a similar object ``Pixel`` which is equivalent to ``CRGB``. But it can be changed at compile time.
+```C
+#define COLOR_RGBW
 
+#include "I2SClocklessVirtualLedDriver.h"
+#define NUM_LEDS 200
 
+Pixel leds[NUM_LEDS];
+//here the Pixel is not RGB but RGBW hence this time it will be a 36 bits
+//it's still ocmpatible with the CRGB object 
+leds[0]=CRGB(233,23,44); 
+```
+in that case the following mapping will be done 
+W = min(R, G, B);
+R = R - W; 
+G = G - W;
+B = B - W;
+
+In the examples you will find some that integrate the FastLED objects.
+
+### MACROS that have nothing to do with led driving
+
+* ``HOW_LONG(name, func)`` : This macro will the time taken by a part of the code
+ex:
+```C
+HOW_LONG("Time taken", {
+//insert the code i.e
+driver.showPixels();
+
+});
+```
+
+the result  in the serial output:
+``The function *** Time taken *** took 100 ms or 10 fps``
+
+*  ``RUN_SKETCH_FOR(name, duration, func)``:  Execute part of the code for the duration in millisecondes
+ex:
+```C
+//it will run for 1000ms or 1s
+int offset=0;
+RUN_SKETCH_FOR("scroll", 1000 {
+    leds[offset]=CRGB::Red;
+    driver.showPixels();
+    offset++;
+});
+
+```
+
+*  ``RUN_SKETCH_N_TIMES(name, ntimes, func)``:  Execute part of the code N times
+ex:
+```C
+//it will run 100 times
+int offset=0;
+RUN_SKETCH_FOR("scroll", 100 {
+    leds[offset]=CRGB::Red;
+    driver.showPixels();
+    offset++;
+});
+
+```
 
 ### Array of strips
 In most leds driver librairies you declare each strip attached to one pin, one line at a time.
@@ -105,13 +165,15 @@ We are declaring that my `leds` array represent 4 strips of `NUM_LED_PER_STRIPS`
 
 #define NBIS2SERIALPINS 2  //the number of virtual pins
 
-#define STATIC_COLOR_GRB 1 //set the strip color
+//set the strip color order
+//by default RGB
 /* the other values
-STATIC_COLOR_RGB
-STATIC_COLOR_RBG
-STATIC_COLOR_GBR
-STATIC_COLOR_BGR
-STATIC_COLOR_BRG
+#define COLOR_RGB
+#define COLOR_RBG
+#define COLOR_GBR
+#define COLOR_BGR
+#define COLOR_BRG
+#define COLOR_RGBW
 */
 
 #define NUM_LEDS_PER_STRIP 256
@@ -131,7 +193,7 @@ I2SClocklessVirtualLedDriver driver;
 #### You are using RGB type leds
 RGB type leds store the information of the led over 3 bytes. `Red,Green,Blue`.  Hence the size in bytes of a led array of `NUM_LEDS` is `3xNUM_LEDS`
 ```C
-uint8_t leds[3*NUM_LEDS];
+Pixels leds[NUM_LEDS];
 
 //if you are using FastLED library this definition will be equivalent to the previous as the CRGB object is 3 bytes
 CRGB leds[NUM_LEDS];
@@ -141,7 +203,7 @@ CRGB leds[NUM_LEDS];
 #### You are using RGBW type leds
 This time to store the information of the led you will need 4 bytes `Red,Green,Blue,White` Hence the size in bytes of a led array of `NUM_LEDS` is `4xNUM_LEDS`
 ```C
-uint8_t leds[4*NUM_LEDS];
+Pixels leds[UM_LEDS];
 ```
 
 ### Driver functions
@@ -158,7 +220,7 @@ uint8_t leds[4*NUM_LEDS];
  ```C
  
 #define NBIS2SERIALPINS 2  //the number of virtual pins
-#define STATIC_COLOR_GRB 1 //set the strip color
+#define COLOR_GRB 1 //set the strip color
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
@@ -169,7 +231,7 @@ uint8_t leds[4*NUM_LEDS];
 
  I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; //equivalent of CRGB leds[NUM_LEDS_PER_STRIPS*NUM_STRIPS]
+ Pixels leds[NUM_STRIPS*NUM_LEDS_PER_STRIP]; //equivalent of CRGB leds[NUM_LEDS_PER_STRIPS*NUM_STRIPS]
  int pins[NBIS2SERIALPINS] ={0,2};
  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
  ```
@@ -177,7 +239,7 @@ uint8_t leds[4*NUM_LEDS];
  example 5: declaring 30 strips of 256 leds in RGBW
  ```C
  #define NBIS2SERIALPINS 4  //the number of virtual pins
-#define STATIC_COLOR_GRBW 1 //set the strip color to GRBW
+#define COLOR_GRBW 1 //set the strip color to GRBW
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
@@ -188,14 +250,39 @@ uint8_t leds[4*NUM_LEDS];
 
  I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[4*NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
  int pins[NBIS2SERIALPINS] ={0,2,12,13};
  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
  ```
- #### `setBrightness(int brightness)`:
+
+#### Other initialization functions:
+* `void initled(Pixel leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`
+*  `void initled(CRGB leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`
+*  `void initled(frameBuffer *leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)` this will be explained later on how to use a frameBuffer
+*  `void initled(int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`: you can initialized the driver without a led buffer.
+this is also used in the case of direct pixel calculation
+ ```C
+ Pixel led1[NUM_LEDS];
+ Pixel leds2[NUM_LEDS];
+driver.initled(pins,CLOCK_PIN,LATCH_PIN);
+
+...
+driver.showPixels(led1);
+...
+driver.showPixels(led2);
+ ```
+
+
+#### `setBrightness(int brightness)`:
  
  This function sets the default brightness for 0->255
- 
+
+
+#### `setGamma(float gammar, float gammab, float gammag)` :
+
+This function sets the gamma of the leds for RGB leds
+
+
 #### `setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)`:
  Set the color of a pixel 
  NB1: if you are using a RGBW led, this function will do and RGB->RGBW transformation with the following algotithm thanks to  @Jonathanese 
@@ -221,19 +308,18 @@ This function allow set 'on the go' the pointer to the leds. This will help if y
 It can also be used to ease dithering see example `Dithering` (I need to work on a hardware implementation btw)
 ```C
 #define NBIS2SERIALPINS 4  //the number of virtual pins
-#define STATIC_COLOR_GRB 1 //set the strip color
+#define COLOR_GRB 1 //set the strip color
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP*NBIS2SERIALPINS*8)
 #define CLOCK_PIN 16
 #define LATCH_PIN 4
 #define NUM_STRIPS 30
- 
- #include "I2SClocklessVirtualLedDriver.h"
+#include "I2SClocklessVirtualLedDriver.h"
 
  I2SClocklessVirtualLedDriver driver;
  
- uint8_t leds[3*NUM_STRIPS*NUM_LEDS_PER_STRIP];  
- uint8_t leds2[3*NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+ Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];  
+ Pixel leds2[NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
  int pins[NBIS2SERIALPINS] ={0,2,12,13};
  driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN);
 
@@ -244,39 +330,278 @@ driver.showPixels();
 driver.showPixels(leds2);
 ```
 
-### And if you do not wanna wait while displaying ? 
-`void showPixels(displayMode dispmode)` and `void showPixels(displayMode dispmode,uint8_t *newleds)` are two functions that can allow you to display the pixels without having to wait
-
+## Let's talk about framerate
+It's kind of a goal to display as fast as it's possible to have a good framerate. The  calculation of the framerate is not only base on the time to display the leds but also the time 'create' the led array.
+i.e
 ```C
-showPixels(NO_WAIT); //it will start displaying the leds but giving you back the process 
- showPixels(NO_WAIT,newleds); //same here
+//display total  tiome/fps fpstotal
+HOW_LONG("Total framerate", {
+    //display time/fps to calculate the array fpscalc
+    HOW_LONG("calcualtion led", {
+    for(int i=0;i<NUM_LEDS;i++)
+    {
+        //do something
+    }
+    });
+    //will display time/fps display the array fpsdisp
+    HOW_LONG("display", {
+        driver.showPixels();
+    });
+});
 
- //i.e if you do this
-//A
-showPixels(NO_WAIT); 
-delay(20);
-//B
- //between A and B it will have passed either 20 or the time of the showPixels (if it's longer than 20ms)
+// here is the formula to calculte the total framerate 1/fpstotal=1/fpscalc+1/fpsdisp
 ```
 
-if you do this
+## How do we improve the framerate
+
+### On the same core 
+Even if the showPixels() takes time, actually the CPU is not busy during the time. Indeed even if to send a pixel (RGB) it takes 30us (microseconds) but the calculation of the buffer takes for 5us to 23us depending on the number of virtual pins to calculate.
+As a consequence we are loosing CPU time. Hopefully the esp32 rune several tasks at the sametime thanks to RTOS.
+
+the driver allows to take advantage of this quite easily. `void showPixels(displayMode dispmode)` 
+
 ```C
-showPixels(NO_WAIT);
-showPixels(NO_WAIT);
+
+......
+ driver.showPixels(NO_WAIT);
+....
+
 ```
-then the showPixels will wait for the first one to end before starting the second one.
+
+In the example `waitnowaitmode.ino` we display 256 leds (max framerate 130fps). If you run the code (even without any leds attached) it will display `75fps` for the showPixels() and `112fps` for the `showPixels(NO_WAIT)`.
+Why is it not 130 fps the max ? because the calculation of the leds array is done wiht the same ressource as the one to calculate the leds buffers to be sent. Both 'compiting' for the same CPU ressource. But we get a 50% speed increase.
+
+### Enable the use of the second core
+The esp32 has two cores and the driver simplify the usage of the second core.
+The main core is core 1 on which runs the application bu default. The second core (core 0) is less used. We can tell the driver to run driver.showPixels() on the second core by `enableShowPixelsOnCore(int core)`
+
+```C
+
+......
+//move the display on core 0
+ driver.enableShowPixelsOnCore(0);
+ //from now on all the showPixels() will be done on core 0
+....
 
 
-### Use of the second core
-Depending on your 
+//move the display back on core 1
+ driver.enableShowPixelsOnCore(1);
+```
+In the example `secondcore.ino`  without the second core we are still at `75fps` and `129fps` (close to the max) when using the two cores.
+In the latest case both the calculation and the display occurs at the sametime.
+
+:arrow_forward: NB: by construct using `driver.enableShowPixelsOnCore(1)` all the following `showPixels()` will be like `showPixels(NO_WAIT)`  
+
+### Impact of these two previous functions
+Let's have a look at this example.(here I use `NO_WAIT` but I could have used the second core)
+
+```C
+for(int i=0;i<NUM_LEDS;i++)
+    {
+        leds[i]=CRGB::Red;
+    }
+
+driver.showPixels(NO_WAIT); 
+
+for(int i=0;i<NUM_LEDS;i++)
+    {
+         leds[i]=CRGB::Blue;
+    }
+```
+
+After the `showPixel(NO_WAIT)` the code continues its execution and the second loop starts. But we have an issue because the program modifies the leds array that is currently being displayed. In that case some blue leds will appear :scream:.
+If you're displaying a fast animation this would not be to much of an issue but in any case we need to find a solution if you see any overlap due to this :
+* calculate the next frame starting with the pixels that would be displayed last. good luck with your algorithm.
+* use two frame buffers
+
+## Framebuffer
+Here it is :smiley: As this driver simplify the use of the second core, it simplifies the use of framebuffers.
+```C
+//use this instead of Pixel leds[NUM_LEDS]
+frameBuffer leds = frameBuffer(NUM_LEDS);
+...
+driver.initled(&leds, Pins, _CLOCK_PIN, _LATCH_PIN);
+//NB: it's initled(&leds,...  this time and not initled(led,...
+```
+The rest of your code will not change at all
+```C
+    for (int i = 0; i < NBIS2SERIALPINS * 16; i++)
+    {
+        for (int j = 0; j < 8 * 16; j++)
+        {
+            //here we write on buffer x
+            leds[i * (8 * 16) + (j) % (8 * 16)] = colors[offset % 3];
+        }
+    }
+    //we display buffer x, we change the writing buffer to x+1
+    driver.showPixels();
+    //now we write in buffer x+1
+    leds[54]=CRGB(25,48,79);
+    //we display buffer x+1 , we switch back the writing buffer to x
+    driver.showPixels();
+```
+:arrow_forward:if you initialized yuour leds with `framebuffer` Automatically upon calling `showPixels`:
+* The call will be switch to `NO_WAIT`
+* the driver will change the buffer on which you be writing
+
+hence in the following example at each iteration of the loop we write in another buffer that the one we are currently displaying.
+```C
+void loop()
+{
+    for(int i=0;i<NUM_LEDS;i++)
+    {
+        //do something with the leds
+    }
+    driver.showPixels();
+}
+```
+In the example `framebuffer.ino` I advice you to change `#define TEST_USE_FRAMEBUFFER 1` to `#define TEST_USE_FRAMEBUFFER 0` to see the effect of the overlap
+
+## Use of color palettes
+Even if the RBG leds allows you to display more than 16 millions colors, it can happen that you do not need that many colors. you would refer to a palette then.
+for instance if you have less than 256 colors, instead of having `Pixel leds[NUM_LED]` which take `3xNUM_LED` bytes you can define `uint8_t leds[NUM_LED]` whihc will take 3 times less memory.
+
+```C
+#define _USE_PALETTE //necessary to tell the driver to use palette
+#include "I2SClocklessVirtualLedDriver.h"
+...
+Pixel palette[256]; //or less if you do not use all 256 colors.
+uint8_t leds[NUM_LEDS];
+
+...
+void functionToFillThePalette(param ..)
+{
+    //do so
+}
+
+void setup()
+{
+    driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
+    driver.setPalette((uint8_t *)palette);
+}
+...
+
+driver.showPixels();
+```
+
+NB: the mapping between the leds value and the palette color is done at runtime => no need of extra memory. There is no creation od a temporary led array.
+
+### moving the palette instead of the pixels
+Like in our old game console, soem animation were made by switching palette. This is waht will happen if you change the palette. like in the example `colorpalete.ino`.
+In this case the animation is occuring because of the swift of the palette colors. I need to change 256 color valuies instead of recalculating 12000 leds. In this exmaple I am modifying the palette bu of course you could do this:
+```C
+
+Pixel palette1[256]; 
+Pixel palette2[256]; 
+...
 
 
-### 'HARDWARE SCROLLING'
-Old term for a nice trick. The idea is to do a remapping of the leds within the driver directly so that the leds are displayed in another order. Pixels are pushed one at a time, and the normal way to do it is by going led 0,1,2,3 ....,N
-Let's say that I want to 'scroll' by 5 pixels all the leds. Normally you would move leds 4->N-1 into 0,N-5 and then copy led 0=>led N-4 act. and then do the fastled.show().
-The way I do it is to push within the driver led 4,5,6,7, ...., N-1,0,1,2,3 by calculating each time which pixels needs to be displayed using a simple algorithm about something along this `lednumber=> (lednumber+scroll)%N` (then a bit more complicated to take into account snake arrangement or not ,...)
+driver.setPalette((uint8_t *)palette1);
+driver.showPixels();
 
-#### `OffsetDisplay` object:
+driver.setPalette((uint8_t *)palette2);
+driver.showPixels();
+
+```
+
+### More than 256 colors palette ?
+You can create a 2bytes palette for a max of 65536 colors. in that case your leds array would need to be 2 bytes per leds
+
+```C
+#define _USE_PALETTE //necessary to tell the driver to use palette
+#define PALETTE_SIZE 2 //for a 2 bytes palette
+#include "I2SClocklessVirtualLedDriver.h"
+
+Pixel palette[11123];
+uint16_t leds[NUM_LEDS]; //still 1 third less memory than RGB led array
+void setup()
+{
+    driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
+    driver.setPalette((uint8_t *)palette);  //still the same call to match the palette
+}
+```
+
+
+
+## Leds mappping
+When creating leds structures sometimes it can be hard to match how the leds informaiton is stored and what it physically represent. For instance you have a panel with a snake pattern or a set of 16x16 panels or something else. You can always write a map(x,y) function but the default is that you cannot manipulate the memory as you wish. THe mapping functions do not work for pictures or for artnet you need to reproduce the physical representation of the strip in your artnet software.
+The idea of the driver is to provide a way to define the mapping function so that in memory the leds are laid like your expect in (X,Y) cooridinate. the acutal mapping is done using calculation withoout touching the led array. Hence for instance you can define your artnet universes as a simple rectangle and it will display correctly.
+
+### How to define the mapping
+for this driver you need to map the led number in the X,Y coordinates to the leds number of the strips.
+
+![mapping](/extra/pictures/mapping.png)
+
+Here is the correspondant mapping function.
+```C
+uint16_t mapfunction(int pos)
+{
+    int x=pos%8;
+    int y=pos/8;
+    if(y%2 == 0)
+    {
+        return y*8+x;
+    }
+    else
+    {
+        return (y+1)*8-x-1;
+    }
+}
+```
+
+### You need to indicate to the driver that you will use mapping
+```C
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+#include "I2SClocklessVirtualLedDriver.h"
+#define LED_HEIGHT 45
+#define LED_WIDTH 14
+...
+
+uint16_t mapfunction(int pos)
+{
+    //your maapping function
+}
+
+....
+driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
+driver.setMapLed(&mapfunction);
+
+...
+for (int i=0;i<LED_WIDTH;i++)
+{
+    for(int j=0;j<LED_HEIGHT;j++)
+    {
+        leds[j*LED_WIDTH+i]=....   //here you're putting your leds in the usual X,Y coordinates
+    }
+}
+
+driver.showPixels();
+
+```
+
+Because the memory layout is exactly the one of the X,Y coordinate it makes manipulation easier and faster than doing `leds[map(i,j)]=...`
+
+please find a full code example in `mapping.ino`
+
+### About I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY
+There are two 'technical' options for the driver to deal with the 'hardware' mapping.
+
+* In memory `#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY`: once the `setMapLed` is executed, an array for the correspondance is created
+    * PRO: less CPU intensive
+    * CON: you need more memory
+* In software `#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE`: the mapping function is call during the interrupt function that creates the memory buffer.
+    * PRO: no need for more memory
+    * CON: more CPU intensive
+
+Depending on your specific need you can choose the option that is more suitable.
+
+:arrow_forward: NB: `setMapLed(NULL)` will cancel the mapping. As you will see in `mapping.ino`
+
+
+## What if I want to display a iamge larger or smaller than my panel ?
+Let's imagine that you want to display a 200x200 picture on a 32x32 led panel. You need to create an algortihm and then if you want to make thispicture scroll it's even more complicated. This driver allows you to do this with simple commands and even more.
+
+###  the `OffsetDisplay` object:
 ```C
 struct OffsetDisplay
 {
@@ -295,169 +620,249 @@ struct OffsetDisplay
     ....
 };
 ```
+
 At the initiation of the leds a default Offdisplay is created with certain values. You can get this default object with `getDefaultOffset();`.
 
-I
+### Defining a panel
+```C
+#define NBIS2SERIALPINS 6
+#define NUM_LEDS_PER_STRIPS 256
+#define PICTURE_WIDTH 256
+#define PICTURE_HEIGHT 256
 
-#### Defining a panel
-To be able to 'hardware scroll' in all directions you need to define how you panel is setup.
-for instance if you have a panel 100 leds wide 20 leds height `panel_height=20` and `panel_witdh=100`.
-If you are using mutilple strips you have two parameters 
-NB: these parameters need to be put before `#include "I2SClocklessLedDriver.h"` :
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY //to activate the option needed
+#include "I2SClocklessVirtualLedDriver.h"
+#include "pics.h" //which contains the image
 
+I2SClocklessVirtualLedDriver driver;
+OffsetDisplay offd;
+uint16_t mapfunction(uint16_t pos)
+{
+  int panelnumber = pos / 256;
+  int datainpanel = pos % 256;
+  int yp = panelnumber / 8;
+  int Xp = panelnumber % 8;
+  int Y = yp;
+  int X = Xp;
 
-#### `showPixels(OffDisplay offset)`:
-This function can help you scroll your leds without doing a mem copy.
+  int x = datainpanel % 16;
+  int y = datainpanel / 16;
 
-#### `showPixels(uint8_t * leds,OffDisplay offset)`:
-Same function as before, where you can set the led buffer you want to display.
+  if (y % 2 == 0)
+  {
+    Y = Y * 16 + y;
+    X = X * 16 + x;
+  }
+  else
+  {
+    Y = Y * 16 + y;
+    X = X * 16 + 16 - x - 1;
+  }
 
-#### Is it reallly needed ?
-Maybe not but fun (humm maybe not that fun lol) to make but great results.
+  return Y * 16 * 8 + X;
+}
 
-
-
- 
-
-
-
-
-## Artifacts, DMA, second core, transposition, ...
-
-### Artifacts
-The ESP32 is a great controller with Wi-FI ,Bluetooth, RTOS, ... but this can cause the program you're running to stop at certain point in time or interupts not behaving as usual. This happen for a very small amount of time that you usually don't notice but when driving leds this can cause artifacts as these leds are really timing specifics. These artifacts have been reported especially when using wi-fi. A lot of effort has been put in order to avoid the artifacts. And it seems to work quite fine with this version of the driver.
-
-To avoid this issue the idea would be to delegate the signal sending to a peripheral that does not rely on the CPU.
-
-#### DMA and I2S
-On the ESP32 it's possible to link a specific type of memory DMA (direct memory access) to the I2S driver (or the SPI). What happen in that case is that the I2S will be fed by the DMA without use of the CPU.
-The I2S driver will push the data to the pins at a spefic fixed rate without the use of the CPU too.
-
-That is the technique which used.
-
-#### Great BUT ...
-The driver uses two DMA buffers which are linked to one another. (B1 and B2). When B1 is read and pushed by the I2S then it will B2 and push it then back to B1 etc ... . Each time a buffer has finished to be pushed a interrupt occurs. In the driver the first set of pixels is loaded in B1 and during the time that B1 is pushed by the I2S we load B2. Once B1 has been pushed it will move to read B2 and push an interupt that allows us to load the next batch in B1. Once B2 has finished to be pushed an interupt occurs and start reading B1 it then load the next set of pixels in B2 and so on and so forth until all the led has been pushed.
-
-This process works very fine, except of the interupt gets stucks because of wi-fi or something else. The interrupt code is stored in a specific part od the memory IRAM_ATTR that is 'protected' from interupts. **But it can happen that the interupts gets 'pushed' by wi-fi or other internal ticks.**
-
-### A solution : push everything in DMA
-The idea is to create a 'big' DMA buffer already filled with all the leds and the tell the I2S to read from that huge buffer. Hence no interupt to take care and the CPU rests during that time.
-
-#### Of course but I need memory
-To transmit a RGB pixel we need to transmit 24 bits adn 32 bits for a RGBW pixel. To respect the timing requirements of the leds we send 'ticks' during wich the ourput is high or low. in our case we sent 3 ticks per bits. for
-* a 0 bit , 1 0 0 are sent (the output stays high during 416ns and low 834ns)
-* a 1 bit , 1 1 0 are sent (the output stays high during 834ns and low 416ns)
-
-NB:  This is the common use approximation of the real timing but it works fine.
-
-Hence to send 24 bit we need 3x24=72 'ticks'. Hence this big DMA buffer will need to need to be 3 times bigger than the led array.
-
-But we are not sending 1 strip at a time but up to 16 strips.
-
-#### Transposition
-The driver whatever the number of strips, sends 16 bits (2 bytes ) to the I2S at each 'ticks'. That means for sending 16 parallel pixels (1 pixel of each 16 strips) you need a buffer of size 24x3x2=144 bytes instead of 16x3=48 bytes in the leds array for RGB leds.
-
-The operation that loads the leds of each strips in serie and move it in parallel is called transposition.
-
-As a consequence the size of the big DMA buffer is only link to the `NUM_LED_PER_STRIP` and not the `NUM_STRIPS`. For instance a DMA buffer for 4 strips of 256 leds will be of the same size of 16 strips of 256 leds.
-
-### OK I have enough memory and what else ?
-For most of your usage you will have enough memory. Hence the big buffer can be created allowing some new stuff
-
-#### No need for second core
-Normally to speed up things, you may program your animation on one core and display on the seconf core using two leds buffers. Here no need. When launching the new function described bellow, The CPU will not be used for the actual 'push' to the leds hence you CPU is free to do someting else.
-
-### Enabling Full DMA buffer
-```c
-#define FULL_DMA_BUFFER //this will enable the full dma buffer
-
-#define NUM_STRIPS 12
-#define NUM_LED_PER_STRIP 256
-
-#include "I2SClocklessLedDriver.h"
-
-I2SClocklessLedDriver driver;
-
-uint8_t leds[4*NUM_STRIPS*NUM_LED_PER_STRIP]; 
-int pins[NUM_STRIPS] ={0,2,4,5,12,13,14,15,16,29,25,26};
-driver.initled((uint8_t*)leds,pins,NUM_STRIPS,NUM_LED_PER_STRIP,ORDER_GRBW);
-
-```
-Now three new functions are available
-
-#### `showPixelsFirstTranpose()` 
-This function will transpose the entire led array and the display it. Has this function as en async function when lauching twice it will wait for the first one the finish
-
-**It's like you are running it on a second core without using it**
-
-Example: if you size of your strip is 500 leds it will take 18ms to display
-```c
-//the duration of the to commands below will be 18ms+18ms =36ms
-showPixels();
-delay(18);
-
-//the duration of the two commands below will be 19ms 
-//the full transposition in the buffer will take 1 ms more or less then the code 
-//goes to the delay function has the displaying if the DMA buffer does not require CPU
-showPixelsFirstTranpose();
-delay(18);
+void setup()
+{
+  // put your setup code here, to run once:
+  Serial.begin(115200);
 
 
-//in the example below if the modifytheledfunction() lasts less than the time  need to display the leds 
-//then the second call will wait before starting and then it's like the modifytheledfunction()
-showPixelsFirstTranpose();
-modifytheledfunction() ....
-showPixelsFirstTranpose();
+  driver.initled(picture, Pins, CLOCK_PIN, LATCH_PIN); //picture is the array of data in the pics.h
+  driver.setMapLed(&mapfunction);
+  driver.setBrightness(30);
+  offd = driver.getDefaultOffset(); //do not forget this
+  offd.panel_width = 128; //the physical width of the panel
+  offd.panel_height = 96; //the physical hieght of the panel
+  offd.image_height = PICTURE_HEIGHT;
+  offd.image_width = PICTURE_WIDTH;
+  driver.showPixels(offd);
+}
 
 ```
 
-Example: `FullBufferFastLED.ino` this example is the equivalent of  `gettingstartedFastLED.ino` but using the buffer. It can be noticed that the overall fps is now higher. 
+### What happen if the image is smaller than the panel ?
 
-#### `setPixelinBuffer(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)`
-This function put a pixel directly in the DMA buffer doing the transposition for RGB leds
+In the case of image smaller image than the panel the none existing pixels wxill be replaced by the data just after the image
+
+```C
+Pixel image[PICTURE_HEIGHT*PICTURE_WIDTH+1];
 
 
-#### `setPixelinBuffer(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue,uint8_t white)`
-This function put a pixel directly in the DMA buffer doing the transposition for RGBW leds
+image[PICTURE_HEIGHT*PICTURE_WIDTH]=CRGB::Red;
+ offd = driver.getDefaultOffset(); //do not forget this
+  offd.panel_width = 128; //the physical width of the panel
+  offd.panel_height = 96; //the physical hieght of the panel
+  offd.image_height = PICTURE_HEIGHT;
+  offd.image_width = PICTURE_WIDTH;
+  driver.showPixels(offd);
+```
+The image will display by the 'background' will be red
 
-**If you are using these two functions and use `showPixelsFirstTranpose()` it will not work as this function will erase the DMA buffer while transposing the entire led buffer**
+You can duplicate the image in X and Y direction
 
-To display the content of the DMA buffer directly use
+```C
+  offd.enableLoopx = true; //the image will duplicate in X direction
+  offd.enableLoopy = true; //the imade will duplication in Y direction
+```
 
-#### `showPixelsFromBuffer()`
-This function directly show the leds from the DMA buffer without doing any transposition of the led buffer. 
 
-Example: `FullBufferWithoutTransposition.ino` 
+###  Scrolling, rotaition, scaling
+The `OffsetDisplay` struct has more attributes :
+* `offsetx` and `offsety` : 
+* `scaling` : scale the image.try negatiuve number it will revese the image
+* `rotation` : rotation angle
+* `xc` and `yc` : set the rotation center
 
-#### Remember what a video chip is ?
-A video chip is  in continuously displaying the content of the video RAM (with some perks like for a game boy) without using the CPU at all.
+![mapping](/extra/pictures/scroll_rotation.GIF)
 
-Now you can consider the DMA buffer as video RAM and the video chip as the I2S. We just need to have hte showPixelsFromBuffer to  loop.
 
-`showPixelsFromBuffer(LOOP)` : this function will display the content of the DMA buffer wihtout using the CPU
+### About I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+To do the scrolling it's more or less the same as the mapping you have several options
 
-Example: `FullBufferLoop.ino`  In this example only with one show function
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY`      : you need two array one for the mapping the second for the scroll
+    * PRO  : really fast during the led buffers creation (good if you have a lot of strips > 50)
+    * CONS : uses a lot of memory; and the framerate is a bit reduced to calculate the SCROLL array
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE` : only one big array for the mapping
+    * PRO  : uses less memory; still efficient
+    * CONS : more CPU intensive than the previous
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE`  : everyting is done at runtime
+    * PRO  : no memory overhead
+    * CONS : really CPU intensive (see chapter on optimizations)
+* `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY` : the mapping is in software pour the scroll arry is precalculated
+    * PRO  : uses less memory; really fast 
+    * CONS : still uses memeory ,overhead during the calculation.
 
-If you want to stop the loop `stopDisplayLoop()`  look at the example `FullBufferLoopStartStop.ino` . The lopp is stopped after 500 'turns' and restart afer 1500.
+The right option will depend on what the rest of your appplication is doing. for exmaple look at this video while the esp32 is receiving up to 73 universes and doign srcolling and rotations.
 
-#### What about frame synchro ??
 
-Using the loop functionality you don't know when you update the DMA buffer which pixel the I2s is currently displaying. As a consequence it can lead to not smooth animations.
+[![Ivideo](http://img.youtube.com/vi/sYtVOU8Hpss/0.jpg)](https://youtu.be/sYtVOU8Hpss?si=r73hu0yQ29UCoF3r)
 
-If you're animation is not smooth enough we can sync using `waitSync()`.
 
-Example: `FullBufferLoopSync.ino`  play with the `waitSync()` to see the difference.
+## Some Optimizations
 
-## Conclusion
-I guess I am getting crazy doing that lol. If you have the memory for it then use the DMA buffer and the `showPixelsFirstTranpose()`  if you can you are sure not to have issue with interupts.
+### Artifacts due to interrupts
+Sometimes interrupts can distrub the pixel buffer calculations hence making some artifacts. A solution against that is to caculate several buffers in advance. BY defualt we have 2 dma buffers. this can be increase to cope with unwanted interupts.
 
-If you wanna play old school, use `showPixelsFromBuffer(LOOP)`.  
+```C
+#define __NB_DMA_BUFFER 4 //here we increase the number of buffers from 2 to 4 increase this number as much as you need
 
-In any case do not hesitate to contact me for features and remarks
+....
+#include "I2SClocklessVirtualLedDriver.h"
 
-## What is next ?
-Add functionnalities to set the sync at any point plus interupt. (for the one old enough it will remind them of souvenirs)
-Improve the speed of `setPixelinBuffer` the function is a bit slow for now.
+```
+NB:If you define `__NB_DMA_BUFFER` to be equal to the number of led per strip you will calculate all the leds in a buffer (but it requires to much memory)
+
+### Reduce the time spent in the buffer creation
+If you remember when I have discussed about the fact that the showPixels is not always occupied with gives time for other processes to run. Well the less time we 'spent' in buffer calcualtion the better.for instance if you do not use gamma calculation and you can cope with a brightness that is a power of 2: 
+
+```C
+#define __BRIGHTNESS_BIT 5  //the max brightness will be 2^5=32
+
+....
+#include "I2SClocklessVirtualLedDriver.h"
+
+```
+it will drastically decrease the time of the buffer calculation
+
+### Increase the buffer length
+Why on earth to that ??????!!!!
+Sometimes despite the above improvement the time to calculate the buffer is longer the time needed to send the pixel hence the leds are not corrected and look duplicated.
+The ws281X leds do not need to receive all the pixel one after the other without pause. If you look at the data sheet you will see that if you wait less than 150us than the led will pass the new data like if it was sent just after.
+
+![mapping](/extra/pictures/IMG_5402.HEIC)
+
+If you activate the Verbose mode while uplaoding your sktech you will have this in the serial output:
+```
+7:46:55.946 -> Frame data:
+17:46:55.946 ->      - frame number:87
+17:46:55.946 ->      - interupt time min:32.39us
+17:46:55.946 ->      - interupt time max:33.38us
+17:46:55.946 ->      - interupt time average:32.71us
+17:46:55.946 ->      - nb of pixel with interuptime > 26.00us: 255
+17:46:55.946 -> Driver data (overall frames):
+17:46:55.946 ->      - nb of frames displayed:87
+17:46:55.946 ->      - nb of frames with pixels 'out of time':87
+17:46:55.946 ->      - max interuptime 34.17us
+17:46:55.946 ->      - max number of pixels out of interuptime in a frame:255
+17:46:55.978 ->      - proposed DMA extension:78
+```
+by adding this
+```C
+#define _DMA_EXTENSTION 78
+...
+
+#include "I2SClocklessVirtualLedDriver.h"
+```
+![mapping](/extra/pictures/IMG_5403.HEIC)
+
+It is corrected
+
+#### Impact of increasing the DMA buffers
+* PRO: 
+    * If you're using `I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE` than you can manage to avoid artifacts
+    * it cvan be useful if you have several tasks in parallel on the same core to give other takss more time to execute as extending the DMA buffer has no impact on CPU usage
+* CON: It decreases the frame rate as each buffer takes longer to be sent
+
+## Infinite number of pixels
+
+The driver can act as a pixels pusher. In that case the value of the leds are calculated at runtime without having to store any led array.
+```C
+#define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION //to activate the pixelpousher mode
+#include "I2SClocklessVirtualLedDriver.h"
+
+
+Pixel functionCalc(uint16_t ledtodisp, int pin, int virtualpin)
+{
+    //calculate the pixels depending on it's position
+}
+void setup()
+{
+  Serial.begin(115200);
+  driver.setPixelCalc(&functionCalc);
+  driver.initled(Pins, CLOCK_PIN, LATCH_PIN); //nb: no need for a led  pointer in the initled
+  driver.showPixels();
+}
+
+```
+What can be done can be quite complex
+
+![mapping](/extra/pictures/pixelpush.GIF)
+
+Two examples `pixelpush.ino` and `pixelpushwithpalette.ino` 
+
+### Why do I say infinte pixels ?
+As this method do not require any led memory you can send pixels forever to an infinite set of strips.... :scream: :scream:
+
+
+## Can I get crazier ? Yes => Interrupt lines
+Yes if I can :blush:.
+I just got a GameBoy couple of weeks ago (yes at my advance age). And I am a fan on demo programming on retro platforms. One of the common trick is to change the displayed picture based on line scan interrupts. I thought it coudl be fun to have this also on the driver.
+
+### The parameters you can change
+At each line you can change:
+* the offsetx
+* the scalingx
+* the scalingy
+
+See example `interruptlines.ino`
+
+```C
+#define I2S_MAPPING_MODE (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY | I2S_MAPPING_MODE_OPTION_INTERRUPT_LINE) // to activate the interrupts
+#include "I2SClocklessVirtualLedDriver.h"
+
+...
+driver.offsetsx[i]=...;
+driver.scalingx[i]=...;
+driver.scalingy[i]=....;
+
+driver.showPixels(offd);
+```
+
+While mixing all together you can do something like this:
+![mapping](/extra/pictures/interrupt.GIF)
+
+
 
 
 
