@@ -278,8 +278,11 @@ driver.showPixels(led2);
  This function sets the default brightness for 0->255
 
 
+#### `setGamma(float gammar, float gammab, float gammag)` :
 
- 
+This function sets the gamma of the leds for RGB leds
+
+
 #### `setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue)`:
  Set the color of a pixel 
  NB1: if you are using a RGBW led, this function will do and RGB->RGBW transformation with the following algotithm thanks to  @Jonathanese 
