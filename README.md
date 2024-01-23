@@ -407,10 +407,12 @@ for(int i=0;i<NUM_LEDS;i++)
 ```
 
 After the `showPixel(NO_WAIT)` the code continues its execution and the second loop starts. But we have an issue because the program modifies the leds array that is currently being displayed. In that case some blue leds will appear :scream:.
-
-
+If you're displaying a fast animation this would not be to much of an issue but in any case we need to find a solution if you see any overlap due to this :
+* calculate the next frame starting with the pixels that would be displayed last. good luck with your algorithm.
+* use two frame buffers
 
 ## Framebuffer
+Here it is :smiley: like this driver simplify the use of the second core,
 
 
 
