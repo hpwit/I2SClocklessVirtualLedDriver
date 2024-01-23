@@ -30,7 +30,7 @@ I have rewritten the library out of the FastLED framework to allow easier testin
 * scrolling, rotating, scaling
 * duplication
 * emulate 'line interrupts' (retro programers will understand)
-* Options to avoid artifacts if you're have interrupt intensive code
+* Options to avoid artifacts if you have interrupt intensive code
 
 
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
@@ -712,6 +712,31 @@ The `OffsetDisplay` struct has more attributes :
 * `xc` and `yc` : set the rotation center
 
 ![mapping](/extra/pictures/scroll_rotation.GIF)
+
+
+### About I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY
+To do the scrolling it's more or less the same as the mapping you have several options
+
+* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_ALL_IN_MEMORY      : you need two array one for the mapping the second for the scroll
+    * PRO  : really fast during the led buffers creation (good if you have a lot of strips > 50)
+    * CONS : uses a lot of memory; and the framerate is a bit reduced to calculate the SCROLL array
+* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY_SOFTWARE : only one big array for the mapping
+    * PRO  : uses less memory; still efficient
+    * CONS : more CPU intensive than the previous
+* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_SOFTWARE  : everyting is done at runtime
+    * PRO  : no memory overhead
+    * CONS : really CPU intensive (see chapter on optimizations)
+* I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE_IN_MEMORY : the mapping is in software pour the scroll arry is precalculated
+    * PRO  : uses less memory; really fast 
+    * CONS : still uses memeory ,overhead during the calculation.
+
+The right option will depend on what the rest of your appplication is doing. for exmaple look at this video while the esp32 is receiving up to 73 universes and doign srcolling and rotations.
+[![Ivideo](http://img.youtube.com/vi/sYtVOU8Hpss/0.jpg)](https://youtu.be/sYtVOU8Hpss?si=r73hu0yQ29UCoF3r)
+
+
+## Some Optimizations
+
+### Artifacts due to interrupts
 
 
 
