@@ -406,6 +406,7 @@ public:
      */
 
     volatile bool isDisplaying = false;
+    volatile bool __enableDriver= true;
     volatile bool isWaiting = true;
     volatile bool framesync = false;
     volatile bool wasWaitingtofinish = false;
@@ -539,7 +540,7 @@ public:
         i2s->sample_rate_conf.tx_bits_mod = 16; // Number of parallel bits/pins
         i2s->clkm_conf.val = 0;
         // i2s->sample_rate_conf.tx_bck_div_num = 1;
-#ifdef DL_CLK
+#ifdef __DL_CLK
         // Serial.println("norml clock");
         i2s->clkm_conf.clka_en = 0;
         // rtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
@@ -557,12 +558,18 @@ public:
 #ifndef _20_MHZ_CLK
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         rtc_clk_apll_enable(true);
-        rtc_clk_apll_coeff_set(31, 133, 7, 1);
+        rtc_clk_apll_coeff_set(1,31, 133, 7);
 #else
         rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 #endif
 #else
-        rtc_clk_apll_enable(true, 0, 0, 8, 1);
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        rtc_clk_apll_enable(true);
+        rtc_clk_apll_coeff_set(1,0, 0, 8);
+#else
+        rtc_clk_apll_enable(true, 0, 0, 8, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+#endif
+       // rtc_clk_apll_enable(true, 0, 0, 8, 1);
 #endif
         i2s->clkm_conf.clka_en = 1;
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
@@ -893,6 +900,8 @@ public:
 
     void showPixels()
     {
+        if(!__enableDriver)
+        return;
         waitDisplay();
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
@@ -1000,6 +1009,10 @@ public:
 
     void ___showPixels()
     {
+        if(!__enableDriver)
+        {
+            return;
+        }
         if (_gI2SClocklessDriver_intr_handle == NULL)
         {
 
@@ -1596,6 +1609,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
         ESP_LOGD(TAG, "creating map array");
         _defaulthmap = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
+      // _defaulthmap = (uint16_t *) heap_caps_malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2,MALLOC_CAP_INTERNAL);
         if (!_defaulthmap)
         {
             Serial.printf("no memory\n");
@@ -1834,6 +1848,13 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
     // return;
     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)arg;
 
+if(!cont->__enableDriver)
+{
+     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
+     cont->i2sStop(cont);
+     
+     return;
+}
     if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ST_S, I2S_OUT_EOF_INT_ST_S))
     {
         cont->framesync = !cont->framesync;
