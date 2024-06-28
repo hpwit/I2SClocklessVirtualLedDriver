@@ -212,6 +212,8 @@ typedef union
     uint32_t shorts[16 * 2];
 } Lines;
 
+
+
 class I2SClocklessVirtualLedDriver;
 struct OffsetDisplay
 {
@@ -288,6 +290,16 @@ enum displayMode
 };
 
 __OffsetDisplay _internalOffsetDisplay;
+
+   static  void IRAM_ATTR  i2sReset()
+    {
+        const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
+        (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+        (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+        const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
+        (&I2S0)->conf.val |= conf_reset_flags;
+        (&I2S0)->conf.val &= ~conf_reset_flags;
+    }
 class I2SClocklessVirtualLedDriver
 {
 
@@ -1727,8 +1739,8 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         (&I2S0)->conf.tx_fifo_reset = 1;
         (&I2S0)->conf.tx_fifo_reset = 0;
     }
-
-    static void i2sStop(I2SClocklessVirtualLedDriver *cont)
+/*
+    static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
     {
 
         // delay(1);
@@ -1743,9 +1755,8 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
         cont->isDisplaying = false;
         // cont->leds=cont->saveleds;
-        /*
-         We have finished to display the strips
-         */
+        //         We have finished to display the strips
+         
         // ets_delay_us(1000);
         if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
         {
@@ -1759,7 +1770,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         }
         // printf("hehe\n");
     }
-
+*/
     void putdefaultlatch(uint16_t *buff)
     {
         // printf("dd%d\n",NBIS2SERIALPINS);
@@ -1827,7 +1838,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         // Set the mode to indicate that we've started
         isDisplaying = true;
     }
-
+/*
     void i2sReset()
     {
         const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
@@ -1837,9 +1848,42 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         (&I2S0)->conf.val |= conf_reset_flags;
         (&I2S0)->conf.val &= ~conf_reset_flags;
     }
-
+*/
     // static void IRAM_ATTR interruptHandler(void *arg);
 };
+
+
+static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
+    {
+
+        // delay(1);
+        esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
+        ets_delay_us(16);
+        (&I2S0)->conf.tx_start = 0;
+        while ((&I2S0)->conf.tx_start == 1)
+        {
+        }
+
+       // cont->i2sReset();
+i2sReset();
+        cont->isDisplaying = false;
+        // cont->leds=cont->saveleds;
+        /*
+         We have finished to display the strips
+         */
+        // ets_delay_us(1000);
+        if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
+        {
+            cont->wasWaitingtofinish = false;
+            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+        }
+        if (cont->isWaiting)
+        {
+            // printf("on debloqu\n");
+            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
+        }
+        // printf("hehe\n");
+    }
 
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 {
@@ -1851,8 +1895,8 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 if(!cont->__enableDriver)
 {
      REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
-     cont->i2sStop(cont);
-     
+     //cont->i2sStop(cont);
+     i2sStop(cont);
      return;
 }
     if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ST_S, I2S_OUT_EOF_INT_ST_S))
@@ -1896,7 +1940,8 @@ if(!cont->__enableDriver)
     {
 
         // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=9999;
-        cont->i2sStop(cont);
+       // cont->i2sStop(cont);
+       i2sStop(cont);
     }
 
     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
