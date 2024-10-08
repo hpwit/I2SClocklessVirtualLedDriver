@@ -294,11 +294,15 @@ __OffsetDisplay _internalOffsetDisplay;
    static  void IRAM_ATTR  i2sReset()
     {
         const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
-        (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
-        (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+       //(&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+        (&I2S0)->lc_conf.val =  (&I2S0)->lc_conf.val | lc_conf_reset_flags;
+        //(&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+        (&I2S0)->lc_conf.val = (&I2S0)->lc_conf.val & (~lc_conf_reset_flags);
         const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
-        (&I2S0)->conf.val |= conf_reset_flags;
-        (&I2S0)->conf.val &= ~conf_reset_flags;
+       // (&I2S0)->conf.val |= conf_reset_flags;
+(&I2S0)->conf.val = (&I2S0)->conf.val | conf_reset_flags;
+       // (&I2S0)->conf.val &= ~conf_reset_flags;
+(&I2S0)->conf.val =(&I2S0)->conf.val & ( ~conf_reset_flags);
     }
 class I2SClocklessVirtualLedDriver
 {
@@ -1098,10 +1102,10 @@ public:
         for (int num_buff = 0; num_buff < __NB_DMA_BUFFER - 1; num_buff++)
         {
             loadAndTranspose(this);
-            dmaBufferActive++;
-            ledToDisplay++;
+            dmaBufferActive=dmaBufferActive+1;
+            ledToDisplay=ledToDisplay+1;
         }
-        ledToDisplay--;
+        ledToDisplay=ledToDisplay-1;
         dmaBufferActive = __NB_DMA_BUFFER - 1;
         //__displayMode=dispmode;
 
@@ -1908,7 +1912,7 @@ if(!cont->__enableDriver)
 
         if (((I2SClocklessVirtualLedDriver *)arg)->transpose)
         {
-            cont->ledToDisplay++;
+            cont->ledToDisplay=cont->ledToDisplay+1;
             if (cont->ledToDisplay < cont->num_led_per_strip)
             {
 
@@ -1922,7 +1926,7 @@ if(!cont->__enableDriver)
 
                 cont->dmaBufferActive = (cont->dmaBufferActive + 1) % __NB_DMA_BUFFER;
             }
-            cont->ledToDisplay_out++;
+            cont->ledToDisplay_out= cont->ledToDisplay_out+1;
         }
         else
         {
