@@ -53,6 +53,9 @@
 #define STATICCOLOR 1
 #endif
 
+#ifndef DELTA_OFFSET_LATCH
+#define DELTA_OFFSET_LATCH 0
+#endif
 #ifdef COLOR_RGBW
 #define p_r 1
 #define p_g 0
@@ -212,8 +215,6 @@ typedef union
     uint32_t shorts[16 * 2];
 } Lines;
 
-
-
 class I2SClocklessVirtualLedDriver;
 struct OffsetDisplay
 {
@@ -291,19 +292,19 @@ enum displayMode
 
 __OffsetDisplay _internalOffsetDisplay;
 
-   static  void IRAM_ATTR  i2sReset()
-    {
-        const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
-       //(&I2S0)->lc_conf.val |= lc_conf_reset_flags;
-        (&I2S0)->lc_conf.val =  (&I2S0)->lc_conf.val | lc_conf_reset_flags;
-        //(&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
-        (&I2S0)->lc_conf.val = (&I2S0)->lc_conf.val & (~lc_conf_reset_flags);
-        const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
-       // (&I2S0)->conf.val |= conf_reset_flags;
-(&I2S0)->conf.val = (&I2S0)->conf.val | conf_reset_flags;
-       // (&I2S0)->conf.val &= ~conf_reset_flags;
-(&I2S0)->conf.val =(&I2S0)->conf.val & ( ~conf_reset_flags);
-    }
+static void IRAM_ATTR i2sReset()
+{
+    const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
+    //(&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+    (&I2S0)->lc_conf.val = (&I2S0)->lc_conf.val | lc_conf_reset_flags;
+    //(&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+    (&I2S0)->lc_conf.val = (&I2S0)->lc_conf.val & (~lc_conf_reset_flags);
+    const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
+    // (&I2S0)->conf.val |= conf_reset_flags;
+    (&I2S0)->conf.val = (&I2S0)->conf.val | conf_reset_flags;
+    // (&I2S0)->conf.val &= ~conf_reset_flags;
+    (&I2S0)->conf.val = (&I2S0)->conf.val & (~conf_reset_flags);
+}
 class I2SClocklessVirtualLedDriver
 {
 
@@ -378,10 +379,10 @@ public:
 
     inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
     {
-       if(newMapLed != NULL)
-        mapLed = newMapLed;
+        if (newMapLed != NULL)
+            mapLed = newMapLed;
         else
-        mapLed=__default__mapping;
+            mapLed = __default__mapping;
         ESP_LOGD(TAG, "calculate mapping");
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         calculateDefaultMapping();
@@ -422,13 +423,13 @@ public:
      */
 
     volatile bool isDisplaying = false;
-    volatile bool __enableDriver= true;
+    volatile bool __enableDriver = true;
     volatile bool isWaiting = true;
     volatile bool framesync = false;
     volatile bool wasWaitingtofinish = false;
     volatile int counti;
 
-    I2SClocklessVirtualLedDriver(){};
+    I2SClocklessVirtualLedDriver() {};
 
     void setPins(int *Pins, int clock_pin, int latch_pin)
     {
@@ -574,18 +575,18 @@ public:
 #ifndef _20_MHZ_CLK
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         rtc_clk_apll_enable(true);
-        rtc_clk_apll_coeff_set(1,31, 133, 7);
+        rtc_clk_apll_coeff_set(1, 31, 133, 7);
 #else
         rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 #endif
 #else
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         rtc_clk_apll_enable(true);
-        rtc_clk_apll_coeff_set(1,0, 0, 8);
+        rtc_clk_apll_coeff_set(1, 0, 0, 8);
 #else
         rtc_clk_apll_enable(true, 0, 0, 8, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 #endif
-       // rtc_clk_apll_enable(true, 0, 0, 8, 1);
+        // rtc_clk_apll_enable(true, 0, 0, 8, 1);
 #endif
         i2s->clkm_conf.clka_en = 1;
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
@@ -916,8 +917,8 @@ public:
 
     void showPixels()
     {
-        if(!__enableDriver)
-        return;
+        if (!__enableDriver)
+            return;
         waitDisplay();
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
@@ -1025,7 +1026,7 @@ public:
 
     void ___showPixels()
     {
-        if(!__enableDriver)
+        if (!__enableDriver)
         {
             return;
         }
@@ -1102,10 +1103,10 @@ public:
         for (int num_buff = 0; num_buff < __NB_DMA_BUFFER - 1; num_buff++)
         {
             loadAndTranspose(this);
-            dmaBufferActive=dmaBufferActive+1;
-            ledToDisplay=ledToDisplay+1;
+            dmaBufferActive = dmaBufferActive + 1;
+            ledToDisplay = ledToDisplay + 1;
         }
-        ledToDisplay=ledToDisplay-1;
+        ledToDisplay = ledToDisplay - 1;
         dmaBufferActive = __NB_DMA_BUFFER - 1;
         //__displayMode=dispmode;
 
@@ -1625,7 +1626,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
         ESP_LOGD(TAG, "creating map array");
         _defaulthmap = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
-      // _defaulthmap = (uint16_t *) heap_caps_malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2,MALLOC_CAP_INTERNAL);
+        // _defaulthmap = (uint16_t *) heap_caps_malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2,MALLOC_CAP_INTERNAL);
         if (!_defaulthmap)
         {
             Serial.printf("no memory\n");
@@ -1743,45 +1744,45 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         (&I2S0)->conf.tx_fifo_reset = 1;
         (&I2S0)->conf.tx_fifo_reset = 0;
     }
-/*
-    static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
-    {
-
-        // delay(1);
-        esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
-        ets_delay_us(16);
-        (&I2S0)->conf.tx_start = 0;
-        while ((&I2S0)->conf.tx_start == 1)
+    /*
+        static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
         {
-        }
 
-        cont->i2sReset();
+            // delay(1);
+            esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
+            ets_delay_us(16);
+            (&I2S0)->conf.tx_start = 0;
+            while ((&I2S0)->conf.tx_start == 1)
+            {
+            }
 
-        cont->isDisplaying = false;
-        // cont->leds=cont->saveleds;
-        //         We have finished to display the strips
-         
-        // ets_delay_us(1000);
-        if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
-        {
-            cont->wasWaitingtofinish = false;
-            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+            cont->i2sReset();
+
+            cont->isDisplaying = false;
+            // cont->leds=cont->saveleds;
+            //         We have finished to display the strips
+
+            // ets_delay_us(1000);
+            if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
+            {
+                cont->wasWaitingtofinish = false;
+                xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+            }
+            if (cont->isWaiting)
+            {
+                // printf("on debloqu\n");
+                xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
+            }
+            // printf("hehe\n");
         }
-        if (cont->isWaiting)
-        {
-            // printf("on debloqu\n");
-            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
-        }
-        // printf("hehe\n");
-    }
-*/
+    */
     void putdefaultlatch(uint16_t *buff)
     {
         // printf("dd%d\n",NBIS2SERIALPINS);
         uint16_t mask1 = 1 << NBIS2SERIALPINS;
         for (int i = 0; i < 24 * nb_components; i++)
         {
-            buff[NUM_VIRT_PINS + i * (NUM_VIRT_PINS + 1) - 1 - 5] = mask1; // 0x8000;
+            buff[NUM_VIRT_PINS + i * (NUM_VIRT_PINS + 1) - 1 - 5 + DELTA_OFFSET_LATCH] = mask1; // 0x8000;
             // buff[NUM_VIRT_PINS+i*(NUM_VIRT_PINS+1)]=0x02;
         }
     }
@@ -1842,52 +1843,51 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         // Set the mode to indicate that we've started
         isDisplaying = true;
     }
-/*
-    void i2sReset()
-    {
-        const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
-        (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
-        (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
-        const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
-        (&I2S0)->conf.val |= conf_reset_flags;
-        (&I2S0)->conf.val &= ~conf_reset_flags;
-    }
-*/
+    /*
+        void i2sReset()
+        {
+            const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
+            (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+            (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+            const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
+            (&I2S0)->conf.val |= conf_reset_flags;
+            (&I2S0)->conf.val &= ~conf_reset_flags;
+        }
+    */
     // static void IRAM_ATTR interruptHandler(void *arg);
 };
 
-
 static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
+{
+
+    // delay(1);
+    esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
+    ets_delay_us(16);
+    (&I2S0)->conf.tx_start = 0;
+    while ((&I2S0)->conf.tx_start == 1)
     {
-
-        // delay(1);
-        esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
-        ets_delay_us(16);
-        (&I2S0)->conf.tx_start = 0;
-        while ((&I2S0)->conf.tx_start == 1)
-        {
-        }
-
-       // cont->i2sReset();
-i2sReset();
-        cont->isDisplaying = false;
-        // cont->leds=cont->saveleds;
-        /*
-         We have finished to display the strips
-         */
-        // ets_delay_us(1000);
-        if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
-        {
-            cont->wasWaitingtofinish = false;
-            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
-        }
-        if (cont->isWaiting)
-        {
-            // printf("on debloqu\n");
-            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
-        }
-        // printf("hehe\n");
     }
+
+    // cont->i2sReset();
+    i2sReset();
+    cont->isDisplaying = false;
+    // cont->leds=cont->saveleds;
+    /*
+     We have finished to display the strips
+     */
+    // ets_delay_us(1000);
+    if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
+    {
+        cont->wasWaitingtofinish = false;
+        xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+    }
+    if (cont->isWaiting)
+    {
+        // printf("on debloqu\n");
+        xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
+    }
+    // printf("hehe\n");
+}
 
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 {
@@ -1896,13 +1896,13 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
     // return;
     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)arg;
 
-if(!cont->__enableDriver)
-{
-     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
-     //cont->i2sStop(cont);
-     i2sStop(cont);
-     return;
-}
+    if (!cont->__enableDriver)
+    {
+        REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
+        // cont->i2sStop(cont);
+        i2sStop(cont);
+        return;
+    }
     if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ST_S, I2S_OUT_EOF_INT_ST_S))
     {
         cont->framesync = !cont->framesync;
@@ -1912,7 +1912,7 @@ if(!cont->__enableDriver)
 
         if (((I2SClocklessVirtualLedDriver *)arg)->transpose)
         {
-            cont->ledToDisplay=cont->ledToDisplay+1;
+            cont->ledToDisplay = cont->ledToDisplay + 1;
             if (cont->ledToDisplay < cont->num_led_per_strip)
             {
 
@@ -1926,7 +1926,7 @@ if(!cont->__enableDriver)
 
                 cont->dmaBufferActive = (cont->dmaBufferActive + 1) % __NB_DMA_BUFFER;
             }
-            cont->ledToDisplay_out= cont->ledToDisplay_out+1;
+            cont->ledToDisplay_out = cont->ledToDisplay_out + 1;
         }
         else
         {
@@ -1944,8 +1944,8 @@ if(!cont->__enableDriver)
     {
 
         // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=9999;
-       // cont->i2sStop(cont);
-       i2sStop(cont);
+        // cont->i2sStop(cont);
+        i2sStop(cont);
     }
 
     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
