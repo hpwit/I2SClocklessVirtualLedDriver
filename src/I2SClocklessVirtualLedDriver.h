@@ -205,7 +205,7 @@
 
 #include "framebuffer.h"
 
-uint16_t __default__mapping(uint16_t pos)
+static uint16_t __default__mapping(uint16_t pos)
 {
     return pos;
 }
@@ -269,7 +269,7 @@ static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver);
 static TaskHandle_t I2SClocklessVirtualLedDriver_dispTaskHandle = 0;
 static TaskHandle_t I2SClocklessVirtualLedDriver_returnTaskHandle = 0;
 static void showPixelsTask(void *pvParameters);
-int interruptSource;
+static int interruptSource;
 
 enum colorarrangment
 {
@@ -290,7 +290,7 @@ enum displayMode
     LOOP_INTERUPT,
 };
 
-__OffsetDisplay _internalOffsetDisplay;
+static __OffsetDisplay _internalOffsetDisplay;
 
 static void IRAM_ATTR i2sReset()
 {
