@@ -1044,10 +1044,16 @@ public:
         }
         else
         {
-            ICVD_LOGV(TAG, "Interrupt alreay setup on core");
+            //ewowi: get this out of the way
+            #if CORE_DEBUG_LEVEL >= 5
+                ICVD_LOGV(TAG, "Interrupt alreay setup on core");
+            #endif
         }
 
-        ICVD_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+        //ewowi: get this out of the way
+        #if CORE_DEBUG_LEVEL >= 5
+            ICVD_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+        #endif
 
         calculateOffsetDisplay(_offsetDisplay);
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
