@@ -6,10 +6,22 @@
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
 #define I2S_MAPPING_MODE I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION
 #include "I2SClocklessVirtualLedDriver.h"
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LATCH_PIN 46
+#define CLOCK_PIN 3
+#else
+
 #define LATCH_PIN 27
 #define CLOCK_PIN 26
+#endif
 
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+int Pins[6] = {9, 10,12,8,18,17};
+#else
 int Pins[6] = {14, 12, 13, 25, 33, 32};
+#endif
+
+
 
 I2SClocklessVirtualLedDriver driver;
 
