@@ -26,7 +26,7 @@ frameBuffer leds = frameBuffer(NUM_LEDS);
 #else
 Pixel leds[NUM_LEDS];
 #endif
-int Pins[6] = {14, 12, 13, 25, 33, 32};
+
 
 I2SClocklessVirtualLedDriver driver;
 int offset = 0;
