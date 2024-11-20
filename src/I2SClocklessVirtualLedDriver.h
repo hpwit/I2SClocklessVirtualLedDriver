@@ -50,8 +50,13 @@ struct gdma_channel_t {
 #endif
 #ifdef OVERCLOCK_1_1MHZ
 #define CLOCK_DIV_NUM 4
-#define CLOCK_DIV_A 2
-#define CLOCK_DIV_B 1
+#define CLOCK_DIV_A 8
+#define CLOCK_DIV_B 4
+#endif
+#ifdef OVERCLOCK_0_7MHZ
+#define CLOCK_DIV_NUM 7
+#define CLOCK_DIV_A 1
+#define CLOCK_DIV_B 0
 #endif
 #ifndef CLOCK_DIV_NUM
 #define CLOCK_DIV_NUM 6 
@@ -709,7 +714,7 @@ gdma_channel_alloc_config_t dma_chan_config = {
     gdma_tx_event_callbacks_t tx_cbs = {
         .on_trans_eof = _I2SClocklessVirtualLedDriverinterruptHandler};
     gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, this);
-      esp_intr_disable((*dma_chan).intr);
+     // esp_intr_disable((*dma_chan).intr);
     LCD_CAM.lcd_user.lcd_start=0;
         #else
 
@@ -838,7 +843,9 @@ DMABuffersTampon=(I2SClocklessVirtualLedDriverDMABuffer ** )heap_caps_malloc(siz
 
   DMABuffersTampon[__NB_DMA_BUFFER - 1]->next = DMABuffersTampon[0];
         DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
-    memset(DMABuffersTampon[__NB_DMA_BUFFER]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+    //memset(DMABuffersTampon[__NB_DMA_BUFFER]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+     //memset(DMABuffersTampon[__NB_DMA_BUFFER+1]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+      DMABuffersTampon[__NB_DMA_BUFFER+1]->next = NULL;
      DMABuffersTampon[__NB_DMA_BUFFER]->dw0.suc_eof = 0;
      #endif
     }
@@ -1305,6 +1312,17 @@ DMABuffersTampon=(I2SClocklessVirtualLedDriverDMABuffer ** )heap_caps_malloc(siz
         DMABuffersTampon[__NB_DMA_BUFFER - 1]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
         DMABuffersTampon[__NB_DMA_BUFFER]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
         DMABuffersTampon[__NB_DMA_BUFFER + 1]->descriptor.qe.stqe_next = 0;
+    
+#else
+     for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
+        {
+    
+            DMABuffersTampon[buff_num]->next = DMABuffersTampon[buff_num + 1];
+
+        }
+        DMABuffersTampon[__NB_DMA_BUFFER - 1]->next = DMABuffersTampon[0];
+        DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
+        DMABuffersTampon[__NB_DMA_BUFFER+1]->next = NULL;
     #endif
         dmaBufferActive = 0;
         // loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
@@ -2070,7 +2088,7 @@ LCD_CAM.lcd_user.lcd_dout = 1;        // Enable data out
     
 //    memset(startBuffer->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
     gdma_start(dma_chan, (intptr_t)startBuffer); // Start DMA w/updated descriptor(s)
-     esp_intr_enable(dma_chan->intr);
+    // esp_intr_enable(dma_chan->intr);
     //vTaskDelay(1);                         // Must 'bake' a moment before...
     LCD_CAM.lcd_user.lcd_start = 1;  
      #else   
@@ -2129,7 +2147,7 @@ LCD_CAM.lcd_user.lcd_start=0;
         while( LCD_CAM.lcd_user.lcd_start)
         {}
         gdma_stop(dma_chan);
-        esp_intr_disable(dma_chan->intr);
+       // esp_intr_disable(dma_chan->intr);
 #else
 
     // delay(1);
@@ -2196,12 +2214,16 @@ static IRAM_ATTR bool _I2SClocklessVirtualLedDriverinterruptHandler(gdma_channel
 
                 loadAndTranspose(cont);
 
-                
+                if (cont->ledToDisplay_out == (cont->num_led_per_strip - (__NB_DMA_BUFFER))) // here it's not -1 because it takes time top have the change into account and it reread the buufer
+                {
+                    cont->DMABuffersTampon[(cont->dmaBufferActive) % __NB_DMA_BUFFER]->next = (cont->DMABuffersTampon[__NB_DMA_BUFFER + 1]);
+                    // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=cont->dmaBufferActive;
+                }
 
                 cont->dmaBufferActive = (cont->dmaBufferActive + 1) % __NB_DMA_BUFFER;
             }
-           // cont->ledToDisplay_out = cont->ledToDisplay_out + 1;
-                if( cont->ledToDisplay>=NUM_LEDS_PER_STRIP+__NB_DMA_BUFFER+2)
+           cont->ledToDisplay_out = cont->ledToDisplay_out + 1;
+                if( cont->ledToDisplay>=NUM_LEDS_PER_STRIP+__NB_DMA_BUFFER-1)
      {
  
 
@@ -3729,8 +3751,9 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 
 static void showPixelsTask(void *pvParameters)
 {
+     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
     #ifndef CONFIG_IDF_TARGET_ESP32S3
-    I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
+   
     if (cont->_gI2SClocklessDriver_intr_handle != NULL)
     {
         esp_intr_free(cont->_gI2SClocklessDriver_intr_handle);
@@ -3749,5 +3772,12 @@ static void showPixelsTask(void *pvParameters)
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         cont->___showPixels();
     }
+    #else
+    for (;;)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        cont->___showPixels();
+    }
     #endif
+
 }
