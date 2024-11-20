@@ -1,12 +1,13 @@
 [![build status](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml/badge.svg)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/actions/workflows/testcode.yml) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/github/v/release/hpwit/I2SClocklessVirtualLedDriver?label=latest%20release)](https://github.com/hpwit/I2SClocklessVirtualLedDriver/releases/latest) &nbsp;&nbsp;[![Badge Version](https://img.shields.io/badge/release_note-blue)](Releasenote.md)
 
-# I2SClocklessVirtualLedDriver for esp32
+# I2SClocklessVirtualLedDriver for esp32 and esp32S3
 ## Introduction
 Hello led afficionados !! Here is the new version of the Virtual pins library. In reality this version of the library had been sitting more or less finalized on my laptop for a while. I needed to take the time and energy to write the correct examples and of course update the documentation. 
 I have been writing led drivers for the past couple of years now while I was building [my 123x48 panel](https://hackaday.io/project/158268-5904-leds-panel). 
 It inspired me to create the I2S driver implemented in FastLED and then the Virtual pins library.
 I am also planning to merge all my different led libraries (4 of them in total)
 
+**NB : On the ESP32SS3 you can [overclock the leds](#for-esp32s3-only) up to 1125KHZ instead of 800KHZ** 
 
 ### What kind of led do you want to drive
 This library is a new take on driving ws2812 leds with I2S on an esp32. It allows to drive up to 120 strips !!! leds in parallel of  
@@ -35,6 +36,9 @@ I have rewritten the library out of the FastLED framework to allow easier testin
 
 I am trying to be kinda lenghtly on this readme. I hope to explain the why of some functions and for the user to use the one most suitable for its use case.
 Some of the 'maybe most' of the functionailities will never been used be it was fun and intersting to implement.
+
+
+
 
 ## Let's start
 ### How can 120 strips can de driven in parallel with an esp32 !!!
@@ -256,11 +260,39 @@ Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP];
  ```
 
 #### Other initialization functions:
+
+
 * `void initled(Pixel leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`
 *  `void initled(CRGB leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`
 *  `void initled(frameBuffer *leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN)` this will be explained later on how to use a frameBuffer
 *  `void initled(int *Pinsq, int CLOCK_PIN, int LATCH_PIN)`: you can initialized the driver without a led buffer.
 this is also used in the case of direct pixel calculation
+
+#### For esp32S3 only
+Thanks to the ESP32 LCD driver being faster you can overclock the leds output (which is limited on the esp32 to send 8 pixels per pin at 800KHZ you need a 19.2Mhz clock and the esp32 above 20Mhz is not reliable)
+* `void initled(Pixel leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN,clock_speed clock)`
+* `void initled(CRGB leds, int *Pinsq, int CLOCK_PIN, int LATCH_PIN,clock_speed clock)`
+* `void initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN,clock_speed clock)`
+
+Here are the possible values
+* `clock_800KHZ`  : default value
+* `clock_1000KHZ` : works really fine
+* `clock_1111KHZ` : depending on your boards
+* `clock_1123KHZ` : the max I manage to get
+
+example:
+```C
+ #include "I2SClocklessVirtualLedDriver.h"
+
+ I2SClocklessVirtualLedDriver driver;
+ 
+Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+ int pins[NBIS2SERIALPINS] ={14, 12, 13, 25};
+ driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN,clock_1111KHZ);
+ ```
+
+
+
  ```C
  Pixel led1[NUM_LEDS];
  Pixel leds2[NUM_LEDS];

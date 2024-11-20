@@ -1,13 +1,25 @@
 #define NBIS2SERIALPINS 6 // the number of virtual pins here mavimum 6x8=48 strips
 #define NUM_LEDS_PER_STRIP 256
 #define NUM_LEDS (NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8)
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LATCH_PIN 46
+#define CLOCK_PIN 3
+#else
+
 #define LATCH_PIN 27
 #define CLOCK_PIN 26
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+int Pins[6] = {9, 10,12,8,18,17};
+#else
+int Pins[6] = {14, 12, 13, 25, 33, 32};
+#endif
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
 #include "I2SClocklessVirtualLedDriver.h"
 Pixel leds[NUM_STRIPS * NUM_LEDS_PER_STRIP];
 
-int Pins[6] = {14, 12, 13, 25, 33, 32};
+
 
 I2SClocklessVirtualLedDriver driver;
 void setup()
