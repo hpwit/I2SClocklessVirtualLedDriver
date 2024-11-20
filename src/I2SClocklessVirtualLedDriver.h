@@ -13,7 +13,7 @@
 // #include "esp32-hal-log.h"
 #include <driver/periph_ctrl.h>
 #include <soc/gdma_channel.h>
-#include "esp_private/periph_ctrl.h"
+//#include "esp_private/periph_ctrl.h"
 //#include "gdma_priv.h"
 #include <hal/gdma_types.h>
 #include <esp_private/gdma.h>
