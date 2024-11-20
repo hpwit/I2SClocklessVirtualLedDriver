@@ -4,7 +4,86 @@
  */
 
 #pragma once
+#ifdef CONFIG_IDF_TARGET_ESP32S3
 
+#include "esp_heap_caps.h"
+#include "freertos/semphr.h"
+#include <stdio.h>
+
+// #include "esp32-hal-log.h"
+#include <driver/periph_ctrl.h>
+#include <soc/gdma_channel.h>
+#include "esp_private/periph_ctrl.h"
+//#include "gdma_priv.h"
+#include <hal/gdma_types.h>
+#include <esp_private/gdma.h>
+#include <hal/dma_types.h>
+#include <hal/gpio_hal.h>
+#include <soc/lcd_cam_struct.h>
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "hal/gpio_ll.h"
+#include "esp_rom_gpio.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+typedef struct gdma_pair_t gdma_pair_t;
+
+
+struct gdma_channel_t {
+    gdma_pair_t *pair;  // which pair the channel belongs to
+    intr_handle_t intr; // per-channel interrupt handle
+    portMUX_TYPE spinlock;  // channel level spinlock
+    gdma_channel_direction_t direction; // channel direction
+    int periph_id; // Peripheral instance ID, indicates which peripheral is connected to this GDMA channel
+    size_t int_mem_alignment; // alignment for memory in internal memory
+    size_t ext_mem_alignment; // alignment for memory in external memory
+    esp_err_t (*del)(gdma_channel_t *channel); // channel deletion function, it's polymorphic, see `gdma_del_tx_channel` or `gdma_del_rx_channel`
+    struct {
+        uint32_t start_stop_by_etm: 1; // whether the channel is started/stopped by ETM
+    } flags;
+};
+
+#ifdef OVER_CLOCK_MAX
+#define CLOCK_DIV_NUM 4
+#define CLOCK_DIV_A 20
+#define CLOCK_DIV_B 9
+#endif
+#ifdef OVERCLOCK_1MHZ
+#define CLOCK_DIV_NUM 5
+#define CLOCK_DIV_A 1
+#define CLOCK_DIV_B 0
+#endif
+#ifdef OVERCLOCK_1_1MHZ
+#define CLOCK_DIV_NUM 4
+#define CLOCK_DIV_A 8
+#define CLOCK_DIV_B 4
+#endif
+#ifndef CLOCK_DIV_NUM
+#define CLOCK_DIV_NUM 6 
+#define CLOCK_DIV_A  4
+#define CLOCK_DIV_B  1
+#endif
+
+typedef struct 
+{
+    int div_num;
+    int div_a;
+    int div_b;
+}clock_speed;
+
+clock_speed clock_1123KHZ={4,20,9};
+clock_speed clock_1111KHZ={4,2,1};
+clock_speed clock_1000KHZ={5,1,0};
+clock_speed clock_800KHZ={6,4,1};
+
+
+
+#define WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE (576*2)
+
+
+
+#else
 #include "esp_heap_caps.h"
 #include "soc/soc.h"
 #include "soc/gpio_sig_map.h"
@@ -28,6 +107,9 @@
 #endif
 #include "esp_log.h"
 #include <soc/rtc.h>
+
+#endif
+
 #include "math.h"
 #include "helper.h"
 #define I2S_DEVICE 0
@@ -53,6 +135,9 @@
 #define STATICCOLOR 1
 #endif
 
+#ifndef DELTA_OFFSET_LATCH
+#define DELTA_OFFSET_LATCH 0
+#endif
 #ifdef COLOR_RGBW
 #define p_r 1
 #define p_g 0
@@ -139,7 +224,13 @@
 #endif
 
 #ifndef __NB_DMA_BUFFER
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define __NB_DMA_BUFFER 10
+#else
 #define __NB_DMA_BUFFER 2
+#endif
+
 #endif
 
 #ifndef __MAX_BRIGTHNESS
@@ -194,6 +285,12 @@
 #define SCALEMAX_BIT 6
 #define SCALEMAX (1 << SCALEMAX_BIT)
 
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE (576*2)
+#else
+#define WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE ((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2 + _DMA_EXTENSTION * 4)
+#endif
+
 #include "___pixeltypes.h"
 
 #define __delay (((NUM_LEDS_PER_STRIP * 125 * 8 * nb_components) / 100000) + 1)
@@ -211,6 +308,30 @@ typedef union
     uint8_t bytes[16 * 8];
     uint32_t shorts[16 * 2];
 } Lines;
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+static uint8_t signalsID[16]={
+LCD_DATA_OUT0_IDX,
+LCD_DATA_OUT1_IDX,
+LCD_DATA_OUT2_IDX,
+LCD_DATA_OUT3_IDX,
+LCD_DATA_OUT4_IDX,
+LCD_DATA_OUT5_IDX,
+LCD_DATA_OUT6_IDX,
+LCD_DATA_OUT7_IDX,
+LCD_DATA_OUT8_IDX,
+LCD_DATA_OUT9_IDX,
+LCD_DATA_OUT10_IDX,
+LCD_DATA_OUT11_IDX,
+LCD_DATA_OUT12_IDX,
+LCD_DATA_OUT13_IDX,
+LCD_DATA_OUT14_IDX,
+LCD_DATA_OUT15_IDX,
+
+};
+static gdma_channel_handle_t dma_chan;
+
+#endif
 
 class I2SClocklessVirtualLedDriver;
 struct OffsetDisplay
@@ -259,7 +380,11 @@ typedef struct
 #if CORE_DEBUG_LEVEL >= 1
 static const char *TAG = "I2SClocklessVirtualLedDriver";
 #endif
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+static IRAM_ATTR bool _I2SClocklessVirtualLedDriverinterruptHandler(gdma_channel_handle_t dma_chan,gdma_event_data_t *event_data, void *user_data);
+#else
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
+#endif
 static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B);
 
 static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver);
@@ -288,23 +413,48 @@ enum displayMode
 };
 
 __OffsetDisplay _internalOffsetDisplay;
+
+static void IRAM_ATTR i2sReset()
+{
+    #ifdef CONFIG_IDF_TARGET_ESP32S3
+gdma_reset(dma_chan);  
+LCD_CAM.lcd_misc.lcd_afifo_reset = 1;
+    #else
+    const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
+    //(&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+    (&I2S0)->lc_conf.val = (&I2S0)->lc_conf.val | lc_conf_reset_flags;
+    //(&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+    (&I2S0)->lc_conf.val = (&I2S0)->lc_conf.val & (~lc_conf_reset_flags);
+    const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
+    // (&I2S0)->conf.val |= conf_reset_flags;
+    (&I2S0)->conf.val = (&I2S0)->conf.val | conf_reset_flags;
+    // (&I2S0)->conf.val &= ~conf_reset_flags;
+    (&I2S0)->conf.val = (&I2S0)->conf.val & (~conf_reset_flags);
+    #endif
+}
 class I2SClocklessVirtualLedDriver
 {
-
+#ifndef CONFIG_IDF_TARGET_ESP32S3
     struct I2SClocklessVirtualLedDriverDMABuffer
     {
         lldesc_t descriptor;
         uint8_t *buffer;
     };
-
+#endif
+ #ifndef CONFIG_IDF_TARGET_ESP32S3
     const int deviceBaseIndex[2] = {I2S0O_DATA_OUT0_IDX, I2S1O_DATA_OUT0_IDX};
     const int deviceClockIndex[2] = {I2S0O_BCK_OUT_IDX, I2S1O_BCK_OUT_IDX};
     const int deviceWordSelectIndex[2] = {I2S0O_WS_OUT_IDX, I2S1O_WS_OUT_IDX};
     const periph_module_t deviceModule[2] = {PERIPH_I2S0_MODULE, PERIPH_I2S1_MODULE};
-
+#endif
 public:
     Lines firstPixel[nb_components];
+ #ifndef CONFIG_IDF_TARGET_ESP32S3
     i2s_dev_t *i2s;
+    #endif
+     #ifdef CONFIG_IDF_TARGET_ESP32S3
+     clock_speed _clockspeed=clock_800KHZ;
+     #endif
     int _maxtime;
     int _max_pixels_out_of_time;
     int _over_frames;
@@ -362,10 +512,10 @@ public:
 
     inline void setMapLed(uint16_t (*newMapLed)(uint16_t led))
     {
-       if(newMapLed != NULL)
-        mapLed = newMapLed;
+        if (newMapLed != NULL)
+            mapLed = newMapLed;
         else
-        mapLed=__default__mapping;
+            mapLed = __default__mapping;
         ESP_LOGD(TAG, "calculate mapping");
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         calculateDefaultMapping();
@@ -406,16 +556,18 @@ public:
      */
 
     volatile bool isDisplaying = false;
-    volatile bool __enableDriver= true;
+    volatile bool __enableDriver = true;
     volatile bool isWaiting = true;
     volatile bool framesync = false;
     volatile bool wasWaitingtofinish = false;
     volatile int counti;
 
-    I2SClocklessVirtualLedDriver(){};
+    I2SClocklessVirtualLedDriver() {};
 
     void setPins(int *Pins, int clock_pin, int latch_pin)
     {
+         #ifndef CONFIG_IDF_TARGET_ESP32S3
+         
         for (int i = 0; i < NBIS2SERIALPINS; i++)
         {
             PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[Pins[i]], PIN_FUNC_GPIO);
@@ -427,6 +579,22 @@ public:
         gpio_matrix_out(latch_pin, deviceBaseIndex[I2S_DEVICE] + NBIS2SERIALPINS + 8, false, false);
         gpio_set_direction((gpio_num_t)clock_pin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
         gpio_matrix_out(clock_pin, deviceClockIndex[I2S_DEVICE], false, false);
+        #else
+ for (int i = 0; i < NBIS2SERIALPINS; i++)
+        {
+                    esp_rom_gpio_connect_out_signal(Pins[i], signalsID[i], false, false);
+        gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[Pins[i]], PIN_FUNC_GPIO);
+        gpio_set_drive_capability((gpio_num_t)Pins[i], (gpio_drive_cap_t)3);
+
+        }
+                           esp_rom_gpio_connect_out_signal(latch_pin, signalsID[NBIS2SERIALPINS], false, false);
+        gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[latch_pin], PIN_FUNC_GPIO);
+        gpio_set_drive_capability((gpio_num_t)latch_pin, (gpio_drive_cap_t)3);
+
+                            esp_rom_gpio_connect_out_signal(clock_pin, LCD_PCLK_IDX, false, false);
+        gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[clock_pin], PIN_FUNC_GPIO);
+        gpio_set_drive_capability((gpio_num_t)clock_pin, (gpio_drive_cap_t)3);
+        #endif
     }
 
     void setColorOrderPerStrip(int stripnumber, colorarrangment arr)
@@ -510,6 +678,64 @@ public:
     void i2sInit()
     {
 
+        #ifdef CONFIG_IDF_TARGET_ESP32S3
+    periph_module_enable(PERIPH_LCD_CAM_MODULE);
+    periph_module_reset(PERIPH_LCD_CAM_MODULE);
+
+    // Reset LCD bus
+    LCD_CAM.lcd_user.lcd_reset = 1;
+    esp_rom_delay_us(100);
+
+    LCD_CAM.lcd_clock.clk_en = 1;             // Enable peripheral clock
+    LCD_CAM.lcd_clock.lcd_clk_sel = 2;        // XTAL_CLK source
+    LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;    // PCLK low in 1st half cycle
+    LCD_CAM.lcd_clock.lcd_ck_idle_edge = 0;   // PCLK low idle
+    LCD_CAM.lcd_clock.lcd_clk_equ_sysclk = 0; // PCLK = CLK / (CLKCNT_N+1)
+    LCD_CAM.lcd_clock.lcd_clkm_div_num =  _clockspeed.div_num;   // 1st stage 1:250 divide
+    LCD_CAM.lcd_clock.lcd_clkm_div_a = _clockspeed.div_a;     // 0/1 fractional divide
+    LCD_CAM.lcd_clock.lcd_clkm_div_b = _clockspeed.div_b;
+    LCD_CAM.lcd_clock.lcd_clkcnt_n = 1; //
+
+  LCD_CAM.lcd_ctrl.lcd_rgb_mode_en = 0;    // i8080 mode (not RGB)
+    LCD_CAM.lcd_rgb_yuv.lcd_conv_bypass = 0; // Disable RGB/YUV converter
+    LCD_CAM.lcd_misc.lcd_next_frame_en = 0;  // Do NOT auto-frame
+    LCD_CAM.lcd_data_dout_mode.val = 0;      // No data delays
+    LCD_CAM.lcd_user.lcd_always_out_en = 1;  // Enable 'always out' mode
+    LCD_CAM.lcd_user.lcd_8bits_order = 0;    // Do not swap bytes
+    LCD_CAM.lcd_user.lcd_bit_order = 0;      // Do not reverse bit order
+    LCD_CAM.lcd_user.lcd_byte_order = 0 ;
+    LCD_CAM.lcd_user.lcd_2byte_en = 1;       // 8-bit data mode
+    LCD_CAM.lcd_user.lcd_dummy = 0;          // Dummy phase(s) @ LCD start
+    LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0; // 1 dummy phase
+    LCD_CAM.lcd_user.lcd_cmd = 0;            // No command at LCD start
+    LCD_CAM.lcd_misc.lcd_bk_en = 1;
+        // -- Create a semaphore to block execution until all the controllers are done
+gdma_channel_alloc_config_t dma_chan_config = {
+        .sibling_chan = NULL,
+        .direction = GDMA_CHANNEL_DIRECTION_TX,
+        .flags = {
+            .reserve_sibling = 0}};
+    gdma_new_channel(&dma_chan_config, &dma_chan);
+    gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
+    gdma_strategy_config_t strategy_config = {
+        .owner_check = false,
+        .auto_update_desc = false};
+    gdma_apply_strategy(dma_chan, &strategy_config);
+    /*
+    gdma_transfer_ability_t ability = {
+        .psram_trans_align = 64,
+        //.sram_trans_align = 64,
+    };
+    gdma_set_transfer_ability(dma_chan, &ability);
+*/
+    // Enable DMA transfer callback
+    gdma_tx_event_callbacks_t tx_cbs = {
+        .on_trans_eof = _I2SClocklessVirtualLedDriverinterruptHandler};
+    gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, this);
+     // esp_intr_disable((*dma_chan).intr);
+    LCD_CAM.lcd_user.lcd_start=0;
+        #else
+
         if (I2S_DEVICE == 0)
         {
             i2s = &I2S0;
@@ -558,18 +784,18 @@ public:
 #ifndef _20_MHZ_CLK
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         rtc_clk_apll_enable(true);
-        rtc_clk_apll_coeff_set(1,31, 133, 7);
+        rtc_clk_apll_coeff_set(1, 31, 133, 7);
 #else
         rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 #endif
 #else
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         rtc_clk_apll_enable(true);
-        rtc_clk_apll_coeff_set(1,0, 0, 8);
+        rtc_clk_apll_coeff_set(1, 0, 0, 8);
 #else
         rtc_clk_apll_enable(true, 0, 0, 8, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 #endif
-       // rtc_clk_apll_enable(true, 0, 0, 8, 1);
+        // rtc_clk_apll_enable(true, 0, 0, 8, 1);
 #endif
         i2s->clkm_conf.clka_en = 1;
         i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
@@ -594,6 +820,7 @@ public:
 
         // -- Create a semaphore to block execution until all the controllers are done
 
+#endif
         if (I2SClocklessVirtualLedDriver_sem == NULL)
         {
             I2SClocklessVirtualLedDriver_sem = xSemaphoreCreateBinary();
@@ -611,9 +838,11 @@ public:
 
     void initDMABuffers()
     {
+
+DMABuffersTampon=(I2SClocklessVirtualLedDriverDMABuffer ** )heap_caps_malloc(sizeof(I2SClocklessVirtualLedDriverDMABuffer  *) *(__NB_DMA_BUFFER+2),MALLOC_CAP_DMA);
         for (int num_buff = 0; num_buff < __NB_DMA_BUFFER + 2; num_buff++)
         {
-            DMABuffersTampon[num_buff] = allocateDMABuffer((NUM_VIRT_PINS + 1) * nb_components * 8 * 3 * 2 + _DMA_EXTENSTION * 4);
+            DMABuffersTampon[num_buff] = allocateDMABuffer(WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
             putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
         } // the buffers for the
 
@@ -621,6 +850,22 @@ public:
         {
             putdefaultones((uint16_t *)DMABuffersTampon[num_buff]->buffer);
         }
+ #ifdef CONFIG_IDF_TARGET_ESP32S3
+        for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
+        {
+    
+            DMABuffersTampon[buff_num]->next = DMABuffersTampon[buff_num + 1];
+
+        }
+   
+
+  DMABuffersTampon[__NB_DMA_BUFFER - 1]->next = DMABuffersTampon[0];
+        DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
+    //memset(DMABuffersTampon[__NB_DMA_BUFFER]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+     //memset(DMABuffersTampon[__NB_DMA_BUFFER+1]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+      DMABuffersTampon[__NB_DMA_BUFFER+1]->next = NULL;
+     DMABuffersTampon[__NB_DMA_BUFFER]->dw0.suc_eof = 0;
+     #endif
     }
 
     void setPixel(uint32_t pos, uint8_t red, uint8_t green, uint8_t blue, uint8_t white)
@@ -900,8 +1145,8 @@ public:
 
     void showPixels()
     {
-        if(!__enableDriver)
-        return;
+        if (!__enableDriver)
+            return;
         waitDisplay();
 
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
@@ -1009,10 +1254,11 @@ public:
 
     void ___showPixels()
     {
-        if(!__enableDriver)
+        if (!__enableDriver)
         {
             return;
         }
+        #ifndef CONFIG_IDF_TARGET_ESP32S3
         if (_gI2SClocklessDriver_intr_handle == NULL)
         {
 
@@ -1031,7 +1277,7 @@ public:
         }
 
         ESP_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
-
+#endif
         calculateOffsetDisplay(_offsetDisplay);
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
 
@@ -1072,24 +1318,40 @@ public:
 #endif
 
         transpose = true;
+          #ifndef CONFIG_IDF_TARGET_ESP32S3
         for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
         {
-            DMABuffersTampon[buff_num]->descriptor.qe.stqe_next = &(DMABuffersTampon[buff_num + 1]->descriptor);
+  
+ DMABuffersTampon[buff_num]->descriptor.qe.stqe_next = &(DMABuffersTampon[buff_num + 1]->descriptor);
+            
         }
+        
 
         DMABuffersTampon[__NB_DMA_BUFFER - 1]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
         DMABuffersTampon[__NB_DMA_BUFFER]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
         DMABuffersTampon[__NB_DMA_BUFFER + 1]->descriptor.qe.stqe_next = 0;
+    
+#else
+     for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
+        {
+    
+            DMABuffersTampon[buff_num]->next = DMABuffersTampon[buff_num + 1];
+
+        }
+        DMABuffersTampon[__NB_DMA_BUFFER - 1]->next = DMABuffersTampon[0];
+        DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
+        DMABuffersTampon[__NB_DMA_BUFFER+1]->next = NULL;
+    #endif
         dmaBufferActive = 0;
         // loadAndTranspose(leds, _offsetDisplay, (uint16_t *)DMABuffersTampon[0]->buffer, ledToDisplay, __green_map, __red_map, __blue_map, __white_map, r_map, g_map, b_map);
         ledToDisplay = 0;
         for (int num_buff = 0; num_buff < __NB_DMA_BUFFER - 1; num_buff++)
         {
             loadAndTranspose(this);
-            dmaBufferActive++;
-            ledToDisplay++;
+            dmaBufferActive = dmaBufferActive + 1;
+            ledToDisplay = ledToDisplay + 1;
         }
-        ledToDisplay--;
+        ledToDisplay = ledToDisplay - 1;
         dmaBufferActive = __NB_DMA_BUFFER - 1;
         //__displayMode=dispmode;
 
@@ -1105,10 +1367,12 @@ public:
         i2sStart(DMABuffersTampon[__NB_DMA_BUFFER]);
         if (__displayMode == WAIT)
         {
+  
             isWaiting = true;
             if (I2SClocklessVirtualLedDriver_sem == NULL)
                 I2SClocklessVirtualLedDriver_sem = xSemaphoreCreateBinary();
             xSemaphoreTake(I2SClocklessVirtualLedDriver_sem, portMAX_DELAY);
+            
         }
         else
         {
@@ -1485,6 +1749,13 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
     {
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+       #ifdef CONFIG_IDF_TARGET_ESP32S3
+         void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin,clock_speed clock)
+    {
+        _clockspeed=clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+       #endif
 #endif
 
     void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
@@ -1492,6 +1763,18 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
 
+       #ifdef CONFIG_IDF_TARGET_ESP32S3
+         void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin,clock_speed clock)
+    {
+        _clockspeed=clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+    void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin,clock_speed clock)
+    {
+        _clockspeed=clock;
+       initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+       #endif
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
         this->leds = leds;
@@ -1586,14 +1869,23 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         memset(firstPixel[0].bytes, 0, 16 * 8);
         memset(firstPixel[1].bytes, 0, 16 * 8);
         memset(firstPixel[2].bytes, 0, 16 * 8);
+        #ifdef CONFIG_IDF_TARGET_ESP32S3
+
+        firstPixel[0].bytes[NBIS2SERIALPINS] = 255;
+        firstPixel[1].bytes[ NBIS2SERIALPINS] = 255;
+        firstPixel[2].bytes[NBIS2SERIALPINS] = 255;
+#if nb_components > 3
+        firstPixel[3].bytes[NBIS2SERIALPINS] = 255;
+
+#endif
+#else
         firstPixel[0].bytes[16 + NBIS2SERIALPINS] = 255;
         firstPixel[1].bytes[16 + NBIS2SERIALPINS] = 255;
         firstPixel[2].bytes[16 + NBIS2SERIALPINS] = 255;
 #if nb_components > 3
         firstPixel[3].bytes[16 + NBIS2SERIALPINS] = 255;
-
 #endif
-
+#endif
         // isRunOnCore=false;
         runCore = 3;
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
@@ -1609,7 +1901,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
         ESP_LOGD(TAG, "creating map array");
         _defaulthmap = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
-      // _defaulthmap = (uint16_t *) heap_caps_malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2,MALLOC_CAP_INTERNAL);
+        // _defaulthmap = (uint16_t *) heap_caps_malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2,MALLOC_CAP_INTERNAL);
         if (!_defaulthmap)
         {
             Serial.printf("no memory\n");
@@ -1680,9 +1972,12 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
     int i2s_base_pin_index;
 
-    I2SClocklessVirtualLedDriverDMABuffer **DMABuffersTransposed = NULL;
+    //I2SClocklessVirtualLedDriverDMABuffer **DMABuffersTransposed = NULL;
     // buffer array for the regular way
-    I2SClocklessVirtualLedDriverDMABuffer *DMABuffersTampon[__NB_DMA_BUFFER + 2];
+    #ifdef CONFIG_IDF_TARGET_ESP32S3
+    typedef  dma_descriptor_t I2SClocklessVirtualLedDriverDMABuffer;
+   #endif
+    I2SClocklessVirtualLedDriverDMABuffer **DMABuffersTampon;//[__NB_DMA_BUFFER + 2];
 
     I2SClocklessVirtualLedDriverDMABuffer *allocateDMABuffer(int bytes)
     {
@@ -1700,7 +1995,13 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
             return NULL;
         }
         memset(b->buffer, 0, bytes);
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+ b->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+  b->dw0.size = bytes;
+                b->dw0.length = bytes;
+                b->dw0.suc_eof = 1;
 
+#else
         b->descriptor.length = bytes;
         b->descriptor.size = bytes;
         b->descriptor.owner = 1;
@@ -1711,62 +2012,70 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         b->descriptor.eof = 1;
         b->descriptor.qe.stqe_next = 0;
 
+        #endif
+
         return b;
     }
 
     void i2sReset_DMA()
     {
+        #ifndef CONFIG_IDF_TARGET_ESP32S3
 
         (&I2S0)->lc_conf.out_rst = 1;
         (&I2S0)->lc_conf.out_rst = 0;
+        #endif
     }
 
     void i2sReset_FIFO()
     {
-
+ #ifndef CONFIG_IDF_TARGET_ESP32S3
         (&I2S0)->conf.tx_fifo_reset = 1;
         (&I2S0)->conf.tx_fifo_reset = 0;
+        #endif
     }
-
-    static void i2sStop(I2SClocklessVirtualLedDriver *cont)
-    {
-
-        // delay(1);
-        esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
-        ets_delay_us(16);
-        (&I2S0)->conf.tx_start = 0;
-        while ((&I2S0)->conf.tx_start == 1)
+    /*
+        static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
         {
-        }
 
-        cont->i2sReset();
+            // delay(1);
+            esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
+            ets_delay_us(16);
+            (&I2S0)->conf.tx_start = 0;
+            while ((&I2S0)->conf.tx_start == 1)
+            {
+            }
 
-        cont->isDisplaying = false;
-        // cont->leds=cont->saveleds;
-        /*
-         We have finished to display the strips
-         */
-        // ets_delay_us(1000);
-        if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
-        {
-            cont->wasWaitingtofinish = false;
-            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
-        }
-        if (cont->isWaiting)
-        {
-            // printf("on debloqu\n");
-            xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
-        }
-        // printf("hehe\n");
-    }
+            cont->i2sReset();
 
+            cont->isDisplaying = false;
+            // cont->leds=cont->saveleds;
+            //         We have finished to display the strips
+
+            // ets_delay_us(1000);
+            if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
+            {
+                cont->wasWaitingtofinish = false;
+                xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+            }
+            if (cont->isWaiting)
+            {
+                // printf("on debloqu\n");
+                xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
+            }
+            // printf("hehe\n");
+        }
+    */
     void putdefaultlatch(uint16_t *buff)
     {
         // printf("dd%d\n",NBIS2SERIALPINS);
         uint16_t mask1 = 1 << NBIS2SERIALPINS;
         for (int i = 0; i < 24 * nb_components; i++)
         {
-            buff[NUM_VIRT_PINS + i * (NUM_VIRT_PINS + 1) - 1 - 5] = mask1; // 0x8000;
+            #ifdef CONFIG_IDF_TARGET_ESP32S3
+             buff[ i * (NUM_VIRT_PINS + 1) ]= mask1;
+            #else
+            buff[NUM_VIRT_PINS + i * (NUM_VIRT_PINS + 1) - 1 - 5 + DELTA_OFFSET_LATCH] = mask1; // 0x8000;
+            #endif
             // buff[NUM_VIRT_PINS+i*(NUM_VIRT_PINS+1)]=0x02;
         }
     }
@@ -1778,9 +2087,13 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         // printf("mas%d\n",mas);
         for (int j = 0; j < 8 * nb_components; j++)
         {
-
+ #ifdef CONFIG_IDF_TARGET_ESP32S3
+             buff[0 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
+            buff[1 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+ #else
             buff[1 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
             buff[0 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+            #endif
             buff[3 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
             buff[2 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
             buff[5 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
@@ -1797,7 +2110,26 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
     void i2sStart(I2SClocklessVirtualLedDriverDMABuffer *startBuffer)
     {
 
-        i2sReset();
+               framesync = false;
+        counti = 0;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
+
+
+
+    LCD_CAM.lcd_user.lcd_start=0;
+gdma_reset(dma_chan);  
+LCD_CAM.lcd_user.lcd_dout = 1;        // Enable data out
+    LCD_CAM.lcd_user.lcd_update = 1;      // Update registers
+    LCD_CAM.lcd_misc.lcd_afifo_reset = 1;
+    
+//    memset(startBuffer->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+    gdma_start(dma_chan, (intptr_t)startBuffer); // Start DMA w/updated descriptor(s)
+    // esp_intr_enable(dma_chan->intr);
+    //vTaskDelay(1);                         // Must 'bake' a moment before...
+    LCD_CAM.lcd_user.lcd_start = 1;  
+     #else   
+      i2sReset();
         framesync = false;
         counti = 0;
 
@@ -1824,23 +2156,130 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         // We start the I2S
         (&I2S0)->conf.tx_start = 1;
 
+#endif
         // Set the mode to indicate that we've started
         isDisplaying = true;
     }
-
-    void i2sReset()
-    {
-        const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
-        (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
-        (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
-        const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
-        (&I2S0)->conf.val |= conf_reset_flags;
-        (&I2S0)->conf.val &= ~conf_reset_flags;
-    }
-
+    /*
+        void i2sReset()
+        {
+            const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
+            (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+            (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+            const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
+            (&I2S0)->conf.val |= conf_reset_flags;
+            (&I2S0)->conf.val &= ~conf_reset_flags;
+        }
+    */
     // static void IRAM_ATTR interruptHandler(void *arg);
 };
 
+static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
+{
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
+//gdma_disconnect(dma_chan);
+LCD_CAM.lcd_user.lcd_start=0;
+
+        while( LCD_CAM.lcd_user.lcd_start)
+        {}
+        gdma_stop(dma_chan);
+       // esp_intr_disable(dma_chan->intr);
+#else
+
+    // delay(1);
+    esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
+    ets_delay_us(16);
+    (&I2S0)->conf.tx_start = 0;
+    while ((&I2S0)->conf.tx_start == 1)
+    {
+    }
+#endif
+    // cont->i2sReset();
+    i2sReset();
+    cont->isDisplaying = false;
+    // cont->leds=cont->saveleds;
+    /*
+     We have finished to display the strips
+     */
+    // ets_delay_us(1000);
+    if (cont->wasWaitingtofinish == true) // and cont->__displayMode==NO_WAIT
+    {
+        cont->wasWaitingtofinish = false;
+        xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_waitDisp);
+    }
+    if (cont->isWaiting)
+    {
+        // printf("on debloqu\n");
+        xSemaphoreGive(cont->I2SClocklessVirtualLedDriver_sem);
+    }
+    // printf("hehe\n");
+}
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+static IRAM_ATTR bool _I2SClocklessVirtualLedDriverinterruptHandler(gdma_channel_handle_t dma_chan,
+                                   gdma_event_data_t *event_data, void *user_data)
+{
+    // This DMA callback seems to trigger a moment before the last data has
+    // issued (buffering between DMA & LCD peripheral?), so pause a moment
+    // before stopping LCD data out. The ideal delay may depend on the LCD
+    // clock rate...this one was determined empirically by monitoring on a
+    // logic analyzer. YMMV.
+    //vTaskDelay(100);
+    // The LCD peripheral stops transmitting at the end of the DMA xfer, but
+    // clear the lcd_start flag anyway -- we poll it in loop() to decide when
+    // the transfer has finished, and the same flag is set later to trigger
+    // the next transfer.
+ I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)user_data;
+
+    if (!cont->__enableDriver)
+    {
+        // cont->i2sStop(cont);
+        i2sStop(cont);
+        return true;
+    }
+
+        cont->framesync = !cont->framesync;
+
+        // cont->ledToDisplay_in[cont->ledToDisplay_out]=cont->ledToDisplay+1;
+        // cont->ledToDisplay_inbuffer[cont->ledToDisplay_out]=cont->dmaBufferActive;
+
+        if (cont->transpose)
+        {
+            cont->ledToDisplay = cont->ledToDisplay + 1;
+            if (cont->ledToDisplay < cont->num_led_per_strip)
+            {
+
+                loadAndTranspose(cont);
+
+                if (cont->ledToDisplay_out == (cont->num_led_per_strip - (__NB_DMA_BUFFER))) // here it's not -1 because it takes time top have the change into account and it reread the buufer
+                {
+                    cont->DMABuffersTampon[(cont->dmaBufferActive) % __NB_DMA_BUFFER]->next = (cont->DMABuffersTampon[__NB_DMA_BUFFER + 1]);
+                    // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=cont->dmaBufferActive;
+                }
+
+                cont->dmaBufferActive = (cont->dmaBufferActive + 1) % __NB_DMA_BUFFER;
+            }
+           cont->ledToDisplay_out = cont->ledToDisplay_out + 1;
+                if( cont->ledToDisplay>=NUM_LEDS_PER_STRIP+__NB_DMA_BUFFER-1)
+     {
+ 
+
+                     i2sStop(cont);
+     }
+        }
+        else
+        {
+            if (cont->framesync)
+            {
+                portBASE_TYPE HPTaskAwoken = 0;
+                xSemaphoreGiveFromISR(cont->I2SClocklessVirtualLedDriver_semSync, &HPTaskAwoken);
+                if (HPTaskAwoken == pdTRUE)
+                    portYIELD_FROM_ISR();
+            }
+        }
+return true;
+}
+#else
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 {
 
@@ -1851,7 +2290,7 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 if(!cont->__enableDriver)
 {
      REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
-     cont->i2sStop(cont);
+    i2sStop(cont);
      
      return;
 }
@@ -1896,11 +2335,12 @@ if(!cont->__enableDriver)
     {
 
         // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=9999;
-        cont->i2sStop(cont);
+        i2sStop(cont);
     }
 
     REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
 }
+#endif
 
 static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 {
@@ -3153,9 +3593,17 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
         poli = _poli;
 #endif
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY)) > 0
-        int pin = (pin74HC595) << 4;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+        int pin = (pin74HC595 ^1) << 4;
 #else
-        int pin = (pin74HC595 ^ 1) << 4;
+ int pin = (pin74HC595) << 4;
+#endif
+#else
+       #ifdef CONFIG_IDF_TARGET_ESP32S3
+        int pin = (pin74HC595 ) << 4;
+#else
+ int pin = (pin74HC595^1) << 4;
+#endif
 #endif
         for (int vpin = 0; vpin < NBIS2SERIALPINS; vpin++)
         {
@@ -3340,7 +3788,9 @@ static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2S
 
 static void showPixelsTask(void *pvParameters)
 {
-    I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
+     I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)pvParameters;
+    #ifndef CONFIG_IDF_TARGET_ESP32S3
+   
     if (cont->_gI2SClocklessDriver_intr_handle != NULL)
     {
         esp_intr_free(cont->_gI2SClocklessDriver_intr_handle);
@@ -3359,4 +3809,12 @@ static void showPixelsTask(void *pvParameters)
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         cont->___showPixels();
     }
+    #else
+    for (;;)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        cont->___showPixels();
+    }
+    #endif
+
 }

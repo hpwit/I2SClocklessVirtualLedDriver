@@ -292,6 +292,7 @@ class Pixels
 
     void copy(Pixels ori,leddirection dir)
     {
+        /*
         leddirection ledd=_direction;
         if (_direction == leddirection::MAP)
             ledd=leddirection::FORWARD;
@@ -306,6 +307,7 @@ class Pixels
                 (*this)[i]=ori[ori._size-i%(ori._size)-1];
             }
         }
+        */
     }
 
     Pixels getStrip(int num_strip,leddirection direction)

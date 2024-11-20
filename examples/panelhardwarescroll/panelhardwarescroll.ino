@@ -8,11 +8,23 @@
 
 #define NUM_LEDS (LED_HEIGHT * LED_WIDTH)
 #include "pics.h"
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LATCH_PIN 46
+#define CLOCK_PIN 3
+#else
+
 #define LATCH_PIN 27
 #define CLOCK_PIN 26
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+int Pins[6] = {9, 10,12,8,18,17};
+#else
+int Pins[6] = {14, 12, 13, 25, 33, 32};
+#endif
 Pixel leds[LED_HEIGHT * LED_WIDTH + 1]; // 48*256=12288 leds 36,864 bytes
 
-int Pins[6] = {14, 12, 13, 25, 33, 32};
+
 
 I2SClocklessVirtualLedDriver driver;
 OffsetDisplay offd;

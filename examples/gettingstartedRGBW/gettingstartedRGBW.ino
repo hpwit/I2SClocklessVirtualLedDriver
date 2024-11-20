@@ -5,11 +5,23 @@
 #define COLOR_RGBW
 // here we have 4 colors per pixel
 #include "I2SClocklessVirtualLedDriver.h"
-#define CLOCK_PIN 16
-#define LATCH_PIN 26
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LATCH_PIN 46
+#define CLOCK_PIN 3
+#else
+
+#define LATCH_PIN 27
+#define CLOCK_PIN 26
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+int Pins[6] = {9, 10,12,8,18,17};
+#else
+int Pins[6] = {14, 12, 13, 25, 33, 32};
+#endif
 Pixel leds[NUM_STRIPS * NUM_LEDS_PER_STRIP];
 
-int pins[16] = {0, 2, 4, 5, 12, 13, 14, 15, 16, 18, 19, 21, 22, 23, 25, 26};
+
 
 I2SClocklessVirtualLedDriver driver;
 void setup()
