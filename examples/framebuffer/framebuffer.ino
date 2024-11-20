@@ -6,8 +6,20 @@
 #define NUM_LEDS (NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8)
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
 #include "I2SClocklessVirtualLedDriver.h"
-#define _LATCH_PIN 27
-#define _CLOCK_PIN 26
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LATCH_PIN 46
+#define CLOCK_PIN 3
+#else
+
+#define LATCH_PIN 27
+#define CLOCK_PIN 26
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+int Pins[6] = {9, 10,12,8,18,17};
+#else
+int Pins[6] = {14, 12, 13, 25, 33, 32};
+#endif
 
 #if TEST_USE_FRAMEBUFFER == 1
 frameBuffer leds = frameBuffer(NUM_LEDS);
@@ -22,9 +34,9 @@ void setup()
 {
     Serial.begin(115200);
 #if TEST_USE_FRAMEBUFFER == 1
-    driver.initled(&leds, Pins, _CLOCK_PIN, _LATCH_PIN);
+    driver.initled(&leds, Pins, CLOCK_PIN, LATCH_PIN);
 #else
-    driver.initled(leds, Pins, _CLOCK_PIN, _LATCH_PIN);
+    driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
 #endif
     driver.setBrightness(20);
 }

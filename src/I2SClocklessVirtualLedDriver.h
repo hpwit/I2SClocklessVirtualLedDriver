@@ -43,6 +43,12 @@ struct gdma_channel_t {
         uint32_t start_stop_by_etm: 1; // whether the channel is started/stopped by ETM
     } flags;
 };
+
+#ifdef OVER_CLOCK_MAX
+#define CLOCK_DIV_NUM 4
+#define CLOCK_DIV_A 20
+#define CLOCK_DIV_B 9
+#endif
 #ifdef OVERCLOCK_1MHZ
 #define CLOCK_DIV_NUM 5
 #define CLOCK_DIV_A 1
@@ -53,16 +59,25 @@ struct gdma_channel_t {
 #define CLOCK_DIV_A 8
 #define CLOCK_DIV_B 4
 #endif
-#ifdef OVERCLOCK_0_7MHZ
-#define CLOCK_DIV_NUM 7
-#define CLOCK_DIV_A 1
-#define CLOCK_DIV_B 0
-#endif
 #ifndef CLOCK_DIV_NUM
 #define CLOCK_DIV_NUM 6 
 #define CLOCK_DIV_A  4
 #define CLOCK_DIV_B  1
 #endif
+
+typedef struct 
+{
+    int div_num;
+    int div_a;
+    int div_b;
+}clock_speed;
+
+clock_speed clock_1123KHZ={4,20,9};
+clock_speed clock_1111KHZ={4,2,1};
+clock_speed clock_1000KHZ={5,1,0};
+clock_speed clock_800KHZ={6,4,1};
+
+
 
 #define WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE (576*2)
 
@@ -295,7 +310,7 @@ typedef union
 } Lines;
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-uint8_t signalsID[16]={
+static uint8_t signalsID[16]={
 LCD_DATA_OUT0_IDX,
 LCD_DATA_OUT1_IDX,
 LCD_DATA_OUT2_IDX,
@@ -314,7 +329,7 @@ LCD_DATA_OUT14_IDX,
 LCD_DATA_OUT15_IDX,
 
 };
-gdma_channel_handle_t dma_chan;
+static gdma_channel_handle_t dma_chan;
 
 #endif
 
@@ -437,6 +452,9 @@ public:
  #ifndef CONFIG_IDF_TARGET_ESP32S3
     i2s_dev_t *i2s;
     #endif
+     #ifdef CONFIG_IDF_TARGET_ESP32S3
+     clock_speed _clockspeed=clock_800KHZ;
+     #endif
     int _maxtime;
     int _max_pixels_out_of_time;
     int _over_frames;
@@ -673,9 +691,9 @@ public:
     LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;    // PCLK low in 1st half cycle
     LCD_CAM.lcd_clock.lcd_ck_idle_edge = 0;   // PCLK low idle
     LCD_CAM.lcd_clock.lcd_clk_equ_sysclk = 0; // PCLK = CLK / (CLKCNT_N+1)
-    LCD_CAM.lcd_clock.lcd_clkm_div_num = CLOCK_DIV_NUM;   // 1st stage 1:250 divide
-    LCD_CAM.lcd_clock.lcd_clkm_div_a = CLOCK_DIV_A;     // 0/1 fractional divide
-    LCD_CAM.lcd_clock.lcd_clkm_div_b = CLOCK_DIV_B;
+    LCD_CAM.lcd_clock.lcd_clkm_div_num =  _clockspeed.div_num;   // 1st stage 1:250 divide
+    LCD_CAM.lcd_clock.lcd_clkm_div_a = _clockspeed.div_a;     // 0/1 fractional divide
+    LCD_CAM.lcd_clock.lcd_clkm_div_b = _clockspeed.div_b;
     LCD_CAM.lcd_clock.lcd_clkcnt_n = 1; //
 
   LCD_CAM.lcd_ctrl.lcd_rgb_mode_en = 0;    // i8080 mode (not RGB)
@@ -1731,6 +1749,13 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
     {
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+       #ifdef CONFIG_IDF_TARGET_ESP32S3
+         void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin,clock_speed clock)
+    {
+        _clockspeed=clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+       #endif
 #endif
 
     void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
@@ -1738,6 +1763,18 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
 
+       #ifdef CONFIG_IDF_TARGET_ESP32S3
+         void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin,clock_speed clock)
+    {
+        _clockspeed=clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+    void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin,clock_speed clock)
+    {
+        _clockspeed=clock;
+       initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
+    }
+       #endif
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
         this->leds = leds;
