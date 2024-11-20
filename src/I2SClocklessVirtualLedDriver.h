@@ -13,7 +13,7 @@
 // #include "esp32-hal-log.h"
 #include <driver/periph_ctrl.h>
 #include <soc/gdma_channel.h>
-#include "esp_private/periph_ctrl.h"
+// #include "esp_private/periph_ctrl.h"
 //#include "gdma_priv.h"
 #include <hal/gdma_types.h>
 #include <esp_private/gdma.h>
@@ -290,7 +290,7 @@ typedef union
 } Lines;
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-uint8_t signalsID[16]={
+static uint8_t signalsID[16]={
 LCD_DATA_OUT0_IDX,
 LCD_DATA_OUT1_IDX,
 LCD_DATA_OUT2_IDX,
@@ -309,7 +309,7 @@ LCD_DATA_OUT14_IDX,
 LCD_DATA_OUT15_IDX,
 
 };
-gdma_channel_handle_t dma_chan;
+static gdma_channel_handle_t dma_chan;
 
 #endif
 
@@ -1258,6 +1258,7 @@ DMABuffersTampon=(I2SClocklessVirtualLedDriverDMABuffer ** )heap_caps_malloc(siz
         #if CORE_DEBUG_LEVEL >= 5
             ICVD_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
         #endif
+#endif
 
         calculateOffsetDisplay(_offsetDisplay);
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
