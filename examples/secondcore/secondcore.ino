@@ -5,11 +5,23 @@
 #define NUM_STRIPS (NBIS2SERIALPINS * 8)
 #define USE_FASTLED
 #include "I2SClocklessVirtualLedDriver.h"
-#define _LATCH_PIN 27
-#define _CLOCK_PIN 26
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define LATCH_PIN 46
+#define CLOCK_PIN 3
+#else
+
+#define LATCH_PIN 27
+#define CLOCK_PIN 26
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+int Pins[6] = {9, 10,12,8,18,17};
+#else
+int Pins[6] = {14, 12, 13, 25, 33, 32};
+#endif
 Pixel leds[NUM_STRIPS * NUM_LEDS_PER_STRIP];
 
-int Pins[6] = {14, 12, 13, 25, 33, 32};
+
 uint16_t mapfunction(uint16_t pos)
 {
     int panelnumber = pos / 256;
@@ -42,7 +54,7 @@ void setup()
 {
     Serial.begin(115200);
 
-    driver.initled(leds, Pins, _CLOCK_PIN, _LATCH_PIN);
+    driver.initled(leds, Pins, CLOCK_PIN, LATCH_PIN);
     driver.setBrightness(20);
     driver.setMapLed(&mapfunction);
     delay(2000);

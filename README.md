@@ -275,13 +275,23 @@ Thanks to the ESP32 LCD driver being faster you can overclock the leds output (w
 * `void initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN,clock_speed clock)`
 
 Here are the possible values
-    * `clock_800KHZ`  : default value
-    * `clock_1000KHZ` : works really fine
-    * `clock_1111KHZ` : depending on your boards
-    * `clock_1123KHZ` : the max I manage to get
+* `clock_800KHZ`  : default value
+* `clock_1000KHZ` : works really fine
+* `clock_1111KHZ` : depending on your boards
+* `clock_1123KHZ` : the max I manage to get
 
 example:
-    `driver.initled(pins,CLOCK_PIN,LATCH_PIN,clock_1111KHZ)`
+```C
+ #include "I2SClocklessVirtualLedDriver.h"
+
+ I2SClocklessVirtualLedDriver driver;
+ 
+Pixel leds[NUM_STRIPS*NUM_LEDS_PER_STRIP]; 
+ int pins[NBIS2SERIALPINS] ={14, 12, 13, 25};
+ driver.initled((uint8_t*)leds,pins,CLOCK_PIN,LATCH_PIN,clock_1111KHZ);
+ ```
+
+
 
  ```C
  Pixel led1[NUM_LEDS];
