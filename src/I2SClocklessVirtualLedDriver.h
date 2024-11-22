@@ -73,10 +73,10 @@ typedef struct
     int div_b;
 } clock_speed;
 
-clock_speed clock_1123KHZ = {4, 20, 9};
-clock_speed clock_1111KHZ = {4, 2, 1};
-clock_speed clock_1000KHZ = {5, 1, 0};
-clock_speed clock_800KHZ = {6, 4, 1};
+static clock_speed clock_1123KHZ = {4, 20, 9};
+static clock_speed clock_1111KHZ = {4, 2, 1};
+static clock_speed clock_1000KHZ = {5, 1, 0};
+static clock_speed clock_800KHZ = {6, 4, 1};
 
 #define WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE (576 * 2)
 
