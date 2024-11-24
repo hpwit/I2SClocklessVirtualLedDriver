@@ -857,7 +857,7 @@ public:
         DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
         // memset(DMABuffersTampon[__NB_DMA_BUFFER]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
         // memset(DMABuffersTampon[__NB_DMA_BUFFER+1]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
-        DMABuffersTampon[__NB_DMA_BUFFER + 1]->next = NULL;
+        DMABuffersTampon[__NB_DMA_BUFFER + 1]->next = DMABuffersTampon[__NB_DMA_BUFFER + 1];
         DMABuffersTampon[__NB_DMA_BUFFER]->dw0.suc_eof = 0;
 #endif
     }
