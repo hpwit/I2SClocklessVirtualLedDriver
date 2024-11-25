@@ -45,7 +45,7 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *args);
 extern "C"
 {
 #endif
-    int globalpairId = -1;
+    static int globalpairId = -1;
 
     typedef struct gdma_pair_t gdma_pair_t;
     typedef struct gdma_channel_t gdma_channel_t;
@@ -192,7 +192,7 @@ esp_intr_alloc(gdma_periph_signals.groups[group->group_id].pairs[pair_id].tx_irq
         return ret;
     }
 
-    esp_err_t _gdma_register_tx_event_callbacks(gdma_channel_handle_t _dma_chan, gdma_tx_event_callbacks_t *cbs, void *user_data)
+    static esp_err_t _gdma_register_tx_event_callbacks(gdma_channel_handle_t _dma_chan, gdma_tx_event_callbacks_t *cbs, void *user_data)
     {
         // ESP_RETURN_ON_FALSE(dma_chan && cbs && dma_chan->direction == GDMA_CHANNEL_DIRECTION_TX, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
         gdma_pair_t *pair = _dma_chan->pair;
