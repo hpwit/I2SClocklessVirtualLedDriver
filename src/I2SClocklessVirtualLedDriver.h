@@ -45,7 +45,7 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *args);
 extern "C"
 {
 #endif
-    int globalpairId = -1;
+    static int globalpairId = -1;
 
     typedef struct gdma_pair_t gdma_pair_t;
     typedef struct gdma_channel_t gdma_channel_t;
@@ -192,7 +192,7 @@ esp_intr_alloc(gdma_periph_signals.groups[group->group_id].pairs[pair_id].tx_irq
         return ret;
     }
 
-    esp_err_t _gdma_register_tx_event_callbacks(gdma_channel_handle_t _dma_chan, gdma_tx_event_callbacks_t *cbs, void *user_data)
+    static esp_err_t _gdma_register_tx_event_callbacks(gdma_channel_handle_t _dma_chan, gdma_tx_event_callbacks_t *cbs, void *user_data)
     {
         // ESP_RETURN_ON_FALSE(dma_chan && cbs && dma_chan->direction == GDMA_CHANNEL_DIRECTION_TX, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
         gdma_pair_t *pair = _dma_chan->pair;
@@ -268,10 +268,10 @@ typedef struct
     int div_b;
 } clock_speed;
 
-clock_speed clock_1123KHZ = {4, 20, 9}; //{4, 20, 9};
-clock_speed clock_1111KHZ = {4, 2, 1};
-clock_speed clock_1000KHZ = {5, 1, 0};
-clock_speed clock_800KHZ = {6, 4, 1};
+static clock_speed clock_1123KHZ = {4, 20, 9};
+static clock_speed clock_1111KHZ = {4, 2, 1};
+static clock_speed clock_1000KHZ = {5, 1, 0};
+static clock_speed clock_800KHZ = {6, 4, 1};
 
 #define WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE (576 * 2)
 
@@ -491,7 +491,7 @@ clock_speed clock_800KHZ = {6, 4, 1};
 
 #include "framebuffer.h"
 
-uint16_t __default__mapping(uint16_t pos)
+static uint16_t __default__mapping(uint16_t pos)
 {
     return pos;
 }
@@ -583,7 +583,7 @@ static void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver);
 static TaskHandle_t I2SClocklessVirtualLedDriver_dispTaskHandle = 0;
 static TaskHandle_t I2SClocklessVirtualLedDriver_returnTaskHandle = 0;
 static void showPixelsTask(void *pvParameters);
-int interruptSource;
+static int interruptSource;
 
 enum colorarrangment
 {
@@ -604,7 +604,7 @@ enum displayMode
     LOOP_INTERUPT,
 };
 
-__OffsetDisplay _internalOffsetDisplay;
+static __OffsetDisplay _internalOffsetDisplay;
 
 static void IRAM_ATTR i2sReset()
 {
@@ -708,11 +708,11 @@ public:
             mapLed = newMapLed;
         else
             mapLed = __default__mapping;
-        ESP_LOGD(TAG, "calculate mapping");
+        ICVD_LOGD(TAG, "calculate mapping");
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
         calculateDefaultMapping();
 #endif
-        ESP_LOGD(TAG, " mapping done");
+        ICVD_LOGD(TAG, " mapping done");
     }
 
 #endif
@@ -724,9 +724,9 @@ public:
     void setPixelCalc(Pixel (*newPixelCalc)(uint16_t led, int pin, int virtualpin))
     {
         pixelCalc = newPixelCalc;
-        ESP_LOGD(TAG, "calculate mapping");
+        ICVD_LOGD(TAG, "calculate mapping");
         // calculateMapping(_defaultOffsetDisplay);
-        ESP_LOGD(TAG, " mapping done");
+        ICVD_LOGD(TAG, " mapping done");
     }
 #else
     uint16_t (*pixelCalc)(uint16_t led, int pin, int virtualpin);
@@ -734,9 +734,9 @@ public:
     void setPixelCalc(uint16_t (*newPixelCalc)(uint16_t led, int pin, int virtualpin))
     {
         pixelCalc = newPixelCalc;
-        ESP_LOGD(TAG, "calculate mapping");
+        ICVD_LOGD(TAG, "calculate mapping");
         // calculateMapping(_defaultOffsetDisplay);
-        ESP_LOGD(TAG, " mapping done");
+        ICVD_LOGD(TAG, " mapping done");
     }
 #endif
 #endif
@@ -1053,7 +1053,7 @@ public:
         DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
         // memset(DMABuffersTampon[__NB_DMA_BUFFER]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
         // memset(DMABuffersTampon[__NB_DMA_BUFFER+1]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
-        DMABuffersTampon[__NB_DMA_BUFFER + 1]->next = NULL;
+        DMABuffersTampon[__NB_DMA_BUFFER + 1]->next = DMABuffersTampon[__NB_DMA_BUFFER + 1];
         DMABuffersTampon[__NB_DMA_BUFFER]->dw0.suc_eof = 0;
 #endif
     }
@@ -1353,7 +1353,7 @@ public:
             leds = framebuff->getFrametoDisplay();
             if (leds == NULL)
             {
-                ESP_LOGD(TAG, "no buffer");
+                ICVD_LOGD(TAG, "no buffer");
                 return;
             }
             __displayMode = NO_WAIT;
@@ -1407,12 +1407,12 @@ public:
     {
         if (corenum > 1)
         {
-            ESP_LOGE(TAG, "enableShowPixelsOnCore error corenum > 1 core should be 0 or 1");
+            ICVD_LOGE(TAG, "enableShowPixelsOnCore error corenum > 1 core should be 0 or 1");
             return;
         }
         if (!driverInit)
         {
-            ESP_LOGE(TAG, "Driver not initiated this will have no effect ... it will be executed at first call");
+            ICVD_LOGE(TAG, "Driver not initiated this will have no effect ... it will be executed at first call");
             return;
         }
         if (I2SClocklessVirtualLedDriver_dispTaskHandle)
@@ -1430,7 +1430,7 @@ public:
         {
             if (!I2SClocklessVirtualLedDriver_dispTaskHandle)
             {
-                ESP_LOGI(TAG, "No running core defined, rexecuting enable");
+                ICVD_LOGI(TAG, "No running core defined, rexecuting enable");
                 enableShowPixelsOnCore(runCore);
                 vTaskDelay(10);
             }
@@ -1452,28 +1452,35 @@ public:
         if (_gI2SClocklessDriver_intr_handle == NULL)
         {
 
-            ESP_LOGV(TAG, "setting interupt handler");
+            ICVD_LOGV(TAG, "setting interupt handler");
             esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
             if (e != ESP_OK)
             {
-                ESP_LOGE(TAG, "Impossible to create interupt allocation");
+                ICVD_LOGE(TAG, "Impossible to create interupt allocation");
                 return;
             }
-            ESP_LOGV(TAG, "interupt handler set on core %d", xPortGetCoreID());
+            ICVD_LOGV(TAG, "interupt handler set on core %d", xPortGetCoreID());
         }
         else
         {
-            ESP_LOGV(TAG, "Interrupt alreay setup on core");
+            //ewowi: get this out of the way
+            #if CORE_DEBUG_LEVEL >= 5
+                ICVD_LOGV(TAG, "Interrupt alreay setup on core");
+            #endif
         }
 
-        ESP_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+        //ewowi: get this out of the way
+        #if CORE_DEBUG_LEVEL >= 5
+            ICVD_LOGV(TAG, "Running on core:%d", xPortGetCoreID());
+        #endif
 #endif
+
         calculateOffsetDisplay(_offsetDisplay);
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_SOFTWARE)) > 0
 
         if (isOffsetDisplay)
         {
-            ESP_LOGV(TAG, "calcualting data");
+            ICVD_LOGV(TAG, "calcualting data");
 
             //  calculateOffsetDisplay(_offsetDisplay);
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
@@ -1481,7 +1488,7 @@ public:
             calculateScrollMapping();
 
 #endif
-            ESP_LOGV(TAG, "cdone alcualting data");
+            ICVD_LOGV(TAG, "cdone alcualting data");
         }
 
         isOffsetDisplay = false;
@@ -1496,13 +1503,13 @@ public:
 
         if (!driverInit)
         {
-            ESP_LOGE(TAG, "Driver not initialized");
+            ICVD_LOGE(TAG, "Driver not initialized");
             return;
         }
 #if !(I2S_MAPPING_MODE == I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION)
         if (leds == NULL)
         {
-            ESP_LOGE(TAG, "no leds buffer defined");
+            ICVD_LOGE(TAG, "no leds buffer defined");
             return;
         }
 #endif
@@ -1607,7 +1614,7 @@ public:
             _proposed_dma_extension = 0;
         }
         //\n     -  proposed DMA extension:%d
-        ESP_LOGV(TAG, "\nFrame data:\n     - frame number:%d\n     - interupt time min:%0.2fus\n     - interupt time max:%0.2fus\n     - interupt time average:%0.2fus\n     - nb of pixel with interuptime > %0.2fus: %d\n\
+        ICVD_LOGV(TAG, "\nFrame data:\n     - frame number:%d\n     - interupt time min:%0.2fus\n     - interupt time max:%0.2fus\n     - interupt time average:%0.2fus\n     - nb of pixel with interuptime > %0.2fus: %d\n\
 Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of frames with pixels 'out of time':%d\n     - max interuptime %.2fus\n     - max number of pixels out of interuptime in a frame:%d\n     - proposed DMA extension:%d",
                  _nb_frames_displayed, (float)_min / 240, (float)_max / 240, (float)total / 240 / (NUM_LEDS_PER_STRIP - 1), _BUFFER_TIMING, totalmax, _nb_frames_displayed, _over_frames, (float)_maxtime / 240, _max_pixels_out_of_time, _proposed_dma_extension);
 #endif
@@ -1819,7 +1826,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         // int xr, yr; //,newx,newy;
         if (!_hmapscroll)
         {
-            ESP_LOGE(TAG, "No more memory\n");
+            ICVD_LOGE(TAG, "No more memory\n");
             return;
         }
 
@@ -1970,7 +1977,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
     void initled(int *Pinsq, int clock_pin, int latch_pin)
     {
-        ESP_LOGI(TAG, "Start driver");
+        ICVD_LOGI(TAG, "Start driver");
         driverInit = false;
         isOffsetDisplay = false;
         /*
@@ -2029,7 +2036,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         dmaBufferCount = __NB_DMA_BUFFER;
         // linewidth = NUM_LEDS_PER_STRIP;
         this->num_led_per_strip = NUM_LEDS_PER_STRIP;
-        ESP_LOGD(TAG, "offset initiation");
+        ICVD_LOGD(TAG, "offset initiation");
         _offsetDisplay.offsetx = 0;
         _offsetDisplay.offsety = 0;
         _offsetDisplay.rotation = 0;
@@ -2077,7 +2084,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 #if (I2S_MAPPING_MODE & (I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY | I2S_MAPPING_MODE_OPTION_MAPPING_SOFTWARE)) > 0
         if (mapLed == NULL)
         {
-            ESP_LOGD(TAG, "Using default mapping function");
+            ICVD_LOGD(TAG, "Using default mapping function");
             mapLed = __default__mapping;
             _offsetDisplay = _defaultOffsetDisplay;
         }
@@ -2085,7 +2092,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 #endif
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_MAPPING_IN_MEMORY) > 0
 
-        ESP_LOGD(TAG, "creating map array");
+        ICVD_LOGD(TAG, "creating map array");
         _defaulthmap = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
         // _defaulthmap = (uint16_t *) heap_caps_malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2,MALLOC_CAP_INTERNAL);
         if (!_defaulthmap)
@@ -2095,15 +2102,15 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         else
         {
 
-            ESP_LOGD(TAG, "calculate mapping");
+            ICVD_LOGD(TAG, "calculate mapping");
             calculateDefaultMapping();
             // calculateOffsetDisplay(_defaultOffsetDisplay);
             // calculateMapping(_defaultOffsetDisplay);
-            ESP_LOGD(TAG, " mapping done");
+            ICVD_LOGD(TAG, " mapping done");
         }
 #endif
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_SCROLL_MAPPING_IN_MEMORY) > 0
-        ESP_LOGD(TAG, "create scroll mapping");
+        ICVD_LOGD(TAG, "create scroll mapping");
         _hmapscroll = (uint16_t *)malloc(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8 * 2 + 2);
         if (!_hmapscroll)
         {
@@ -2115,29 +2122,29 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_INTERRUPT_LINE) > 0
         resetInterruptsParameters();
 #endif
-        ESP_LOGD(TAG, "semaphore init");
+        ICVD_LOGD(TAG, "semaphore init");
         if (I2SClocklessVirtualLedDriver_waitDisp == NULL)
         {
             I2SClocklessVirtualLedDriver_waitDisp = xSemaphoreCreateCounting(10, 0);
         }
         // this->num_strips=num_strips;
         this->dmaBufferCount = dmaBufferCount;
-        ESP_LOGD(TAG, "Pins initiation");
+        ICVD_LOGD(TAG, "Pins initiation");
         setPins(Pinsq, clock_pin, latch_pin);
-        ESP_LOGD(TAG, "I2S init");
+        ICVD_LOGD(TAG, "I2S init");
         i2sInit();
-        ESP_LOGD(TAG, "DMA initiation");
+        ICVD_LOGD(TAG, "DMA initiation");
         initDMABuffers();
-        ESP_LOGD(TAG, "End DMA initiation");
+        ICVD_LOGD(TAG, "End DMA initiation");
         driverInit = true;
-        ESP_LOGI(TAG, "driver initiated");
+        ICVD_LOGI(TAG, "driver initiated");
     }
 
     void initled(frameBuffer *framb, int *Pinsq, int clock_pin, int latch_pin)
     {
         framebuff = framb;
         useFrame = true;
-        ESP_LOGD(TAG, "Init leds with framebuffer");
+        ICVD_LOGD(TAG, "Init leds with framebuffer");
         initled(framb->frames[0], Pinsq, clock_pin, latch_pin);
     }
     // private:
@@ -2170,14 +2177,14 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         I2SClocklessVirtualLedDriverDMABuffer *b = (I2SClocklessVirtualLedDriverDMABuffer *)heap_caps_malloc(sizeof(I2SClocklessVirtualLedDriverDMABuffer), MALLOC_CAP_DMA);
         if (!b)
         {
-            ESP_LOGE(TAG, "No more memory\n");
+            ICVD_LOGE(TAG, "No more memory\n");
             return NULL;
         }
 
         b->buffer = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_DMA);
         if (!b->buffer)
         {
-            ESP_LOGE(TAG, "No more memory\n");
+            ICVD_LOGE(TAG, "No more memory\n");
             return NULL;
         }
         memset(b->buffer, 0, bytes);
@@ -4015,14 +4022,14 @@ static void showPixelsTask(void *pvParameters)
     {
         esp_intr_free(cont->_gI2SClocklessDriver_intr_handle);
     }
-    ESP_LOGV(TAG, "setting interupt handler");
+    ICVD_LOGV(TAG, "setting interupt handler");
     esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessVirtualLedDriverinterruptHandler, cont, &cont->_gI2SClocklessDriver_intr_handle);
     if (e != ESP_OK)
     {
-        ESP_LOGE(TAG, "Impossible to create interupt allocation");
+        ICVD_LOGE(TAG, "Impossible to create interupt allocation");
         return;
     }
-    ESP_LOGV(TAG, "interupt handler set on core %d", xPortGetCoreID());
+    ICVD_LOGV(TAG, "interupt handler set on core %d", xPortGetCoreID());
 
     for (;;)
     {
