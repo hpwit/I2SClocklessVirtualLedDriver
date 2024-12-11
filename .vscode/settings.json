@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "__locale": "cpp",
+        "ios": "cpp",
+        "complex": "cpp",
+        "limits": "cpp",
+        "ratio": "cpp",
+        "chrono": "cpp",
+        "algorithm": "cpp"
+    }
+}

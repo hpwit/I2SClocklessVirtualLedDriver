@@ -1,0 +1,31 @@
+name: LibraryBuild
+on:
+  push: # see: https://help.github.com/en/actions/reference/events-that-trigger-workflows#pull-request-event-pull_request
+    paths:
+    - '**.ino'
+    - '**.cpp'
+    - '**.h'
+    - '**testcode.yml'
+  pull_request:
+jobs:
+  build:
+    name: test compiling examples
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Compile all examples
+        uses: ArminJo/arduino-test-compile@v3
+        with:
+          arduino-board-fqbn: esp32:esp32:esp32:DebugLevel=verbose,FlashMode=dio,FlashFreq=80,FlashSize=4M
+          platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
+          sketch-names: gettingstarted.ino,panelhardwarescroll.ino,interruptlines.ino,framebuffer.ino,pixelpush.ino,mapping.ino # Comma separated list of sketch names (no path required) or patterns to use in build
+         # board-name: esp32
+          set-build-path: true 
+

@@ -1,0 +1,15 @@
+{
+  "name": "I2SClocklessVirtualLedDriver",
+  "keywords": "NeoPixel, WS2811, WS2812, WS2813, SK6812, DotStar, RGB, RGBW",
+  "description": "Supports for Esp32 and esp32s3.  Support for RGBW pixels.  up to 120 stips in full parallel mode.",
+  "homepage": "ttps://github.com/hpwit/I2SClocklessVirtualLedDriver",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/hpwit/I2SClocklessVirtualLedDriver"
+  },
+  "version": "2.1.0",
+  "frameworks": "arduino",
+  "platforms": "*"
+}
+
