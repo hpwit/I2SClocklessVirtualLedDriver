@@ -159,7 +159,7 @@ extern "C"
         int pair_id = pair->pair_id;
         globalpairId = pair_id;
         // pre-alloc a interrupt handle, with handler disabled
-        int isr_flags = ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3;
+        int isr_flags = ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3; //ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3;
         /*
         #if GDMA_LL_AHB_TX_RX_SHARE_INTERRUPT
             isr_flags |= ESP_INTR_FLAG_SHARED | ESP_INTR_FLAG_LOWMED;
@@ -310,11 +310,15 @@ clock_speed clock_800KHZ = {6, 4, 1};
 
 #define NUM_VIRT_PINS 7
 
+
+#ifndef NUM_LEDS_PER_STRIP
+int NUM_LEDS_PER_STRIP;
+int NBIS2SERIALPINS;
+#else
 #ifndef NBIS2SERIALPINS
 #define NBIS2SERIALPINS 1
 #endif
 
-#ifndef NUM_LEDS_PER_STRIP
 #define NUM_LEDS_PER_STRIP 256
 #endif
 
@@ -396,6 +400,16 @@ clock_speed clock_800KHZ = {6, 4, 1};
 #endif
 
 #define OFFSET (NUM_VIRT_PINS + 1)
+#ifndef NUM_LEDS_PER_STRIP
+uint16_t I2S_OFF; 
+uint16_t I2S_OFF2; 
+uint16_t I2S_OFF3 ;
+uint16_t I2S_OFF4 ;
+uint16_t I2S_OFF_MAP; 
+uint16_t I2S_OFF2_MAP ;
+uint16_t I2S_OFF3_MAP; 
+uint16_t I2S_OFF4_MAP; 
+#else
 #define I2S_OFF (((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP) * _palette_size)
 #define I2S_OFF2 ((I2S_OFF * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP * _palette_size))
 #define I2S_OFF3 ((I2S_OFF * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP * _palette_size))
@@ -404,6 +418,7 @@ clock_speed clock_800KHZ = {6, 4, 1};
 #define I2S_OFF2_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP))
 #define I2S_OFF3_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP))
 #define I2S_OFF4_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP))
+#endif
 #define BUFFOFF ((NBIS2SERIALPINS * 8) - 1)
 #define AAA (0x00AA00AAL)
 #define CCC (0x0000CCCCL)
@@ -921,7 +936,7 @@ public:
     */
         // Enable DMA transfer callback
         gdma_tx_event_callbacks_t tx_cbs = {
-            //  .on_trans_eof = _I2SClocklessVirtualLedDriverinterruptHandler
+              .on_trans_eof = _I2SClocklessVirtualLedDriverinterruptHandler
         };
         _gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, this);
         // esp_intr_disable((*dma_chan).intr);
@@ -1931,27 +1946,59 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 #endif
 
 #ifdef USE_FASTLED
+
+#ifdef NUM_LEDS_PER_STRIP
+   void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin,int num_led_per_strip,int nbserialpins)
+    {
+         NUM_LEDS_PER_STRIP=num_led_per_strip;
+        NBIS2SERIALPINS=nbserialpins;
+#else
+
     void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
+#endif
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
 #ifdef CONFIG_IDF_TARGET_ESP32S3
+#ifdef NUM_LEDS_PER_STRIP
+    void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin,int num_led_per_strip,int nbserialpins, clock_speed clock)
+    {
+         NUM_LEDS_PER_STRIP=num_led_per_strip;
+        NBIS2SERIALPINS=nbserialpins;
+#else
     void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin, clock_speed clock)
     {
+        #endif
         _clockspeed = clock;
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
 #endif
 #endif
 
-    void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
+#ifndef NUM_LEDS_PER_STRIP
+    void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin,int num_led_per_strip,int nbserialpins)
     {
+         NUM_LEDS_PER_STRIP=num_led_per_strip;
+        NBIS2SERIALPINS=nbserialpins;
+#else
+void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
+{
+#endif
+
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
+#ifndef NUM_LEDS_PER_STRIP
+    void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin, int num_led_per_strip,int nbserialpins,clock_speed clock)
+    {
+         NUM_LEDS_PER_STRIP=num_led_per_strip;
+        NBIS2SERIALPINS=nbserialpins;
+#else
     void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin, clock_speed clock)
     {
+#endif
+  
         _clockspeed = clock;
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
@@ -1961,16 +2008,40 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
 #endif
+#ifndef NUM_LEDS_PER_STRIP
+ void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin,int num_led_per_strip,int nbserialpins)
+ {
+       NUM_LEDS_PER_STRIP=num_led_per_strip;
+        NBIS2SERIALPINS=nbserialpins;
+#else
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
+    #endif
+    
         this->leds = leds;
         this->saveleds = leds;
         initled(Pinsq, clock_pin, latch_pin);
     }
 
-    void initled(int *Pinsq, int clock_pin, int latch_pin)
+#ifndef NUM_LEDS_PER_STRIP
+void initled(int *Pinsq, int clock_pin, int latch_pin)
+#else
+void initled(int *Pinsq, int clock_pin, int latch_pin)
+#endif
+    
     {
         ESP_LOGI(TAG, "Start driver");
+        #ifndef NUM_LEDS_PER_STRIP
+     
+       I2S_OFF =(((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP) * _palette_size);
+ I2S_OFF2 =((I2S_OFF * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP * _palette_size));
+ I2S_OFF3 =((I2S_OFF * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP * _palette_size));
+ I2S_OFF4= ((I2S_OFF * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP * _palette_size));
+ I2S_OFF_MAP =(((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP));
+ I2S_OFF2_MAP =((I2S_OFF_MAP * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP));
+ I2S_OFF3_MAP =((I2S_OFF_MAP * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP));
+ I2S_OFF4_MAP =((I2S_OFF_MAP * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP));
+ #endif
         if(driverInit)
         {
             setPins(Pinsq, clock_pin, latch_pin);
