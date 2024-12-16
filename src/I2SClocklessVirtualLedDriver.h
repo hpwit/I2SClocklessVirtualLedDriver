@@ -40,7 +40,9 @@
 #include "soc/periph_defs.h"
 #include "soc/soc_caps.h"
 #include "soc/gdma_periph.h"
+#ifdef TEST_ISR
 void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *args);
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -159,7 +161,7 @@ extern "C"
         int pair_id = pair->pair_id;
         globalpairId = pair_id;
         // pre-alloc a interrupt handle, with handler disabled
-        int isr_flags = ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3; // ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3;
+        int isr_flags = ESP_INTR_FLAG_INTRDISABLED ; // ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3;
         /*
         #if GDMA_LL_AHB_TX_RX_SHARE_INTERRUPT
             isr_flags |= ESP_INTR_FLAG_SHARED | ESP_INTR_FLAG_LOWMED;
@@ -237,8 +239,10 @@ extern "C"
 
         return ESP_OK;
     }
+   
 #ifdef __cplusplus
 }
+#endif
 #endif
 #ifdef OVER_CLOCK_MAX
 #define CLOCK_DIV_NUM 4
@@ -311,14 +315,13 @@ clock_speed clock_800KHZ = {6, 4, 1};
 #define NUM_VIRT_PINS 7
 
 #ifndef NUM_LEDS_PER_STRIP
-int NUM_LEDS_PER_STRIP;
-int NBIS2SERIALPINS;
+volatile int NUM_LEDS_PER_STRIP;
+volatile int NBIS2SERIALPINS;
 #else
 #ifndef NBIS2SERIALPINS
 #define NBIS2SERIALPINS 1
 #endif
 
-#define NUM_LEDS_PER_STRIP 256
 #endif
 
 #ifndef HARDWARESPRITES
@@ -400,14 +403,15 @@ int NBIS2SERIALPINS;
 
 #define OFFSET (NUM_VIRT_PINS + 1)
 #ifndef NUM_LEDS_PER_STRIP
-uint16_t I2S_OFF;
-uint16_t I2S_OFF2;
-uint16_t I2S_OFF3;
-uint16_t I2S_OFF4;
-uint16_t I2S_OFF_MAP;
-uint16_t I2S_OFF2_MAP;
-uint16_t I2S_OFF3_MAP;
-uint16_t I2S_OFF4_MAP;
+volatile uint16_t I2S_OFF;
+volatile uint16_t I2S_OFF2;
+volatile uint16_t I2S_OFF3;
+volatile uint16_t I2S_OFF4;
+volatile uint16_t I2S_OFF_MAP;
+volatile uint16_t I2S_OFF2_MAP;
+volatile uint16_t I2S_OFF3_MAP;
+volatile uint16_t I2S_OFF4_MAP;
+volatile uint16_t BUFFOFF;
 #else
 #define I2S_OFF (((NUM_VIRT_PINS + 1) * NUM_LEDS_PER_STRIP) * _palette_size)
 #define I2S_OFF2 ((I2S_OFF * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP * _palette_size))
@@ -417,8 +421,9 @@ uint16_t I2S_OFF4_MAP;
 #define I2S_OFF2_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP))
 #define I2S_OFF3_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP))
 #define I2S_OFF4_MAP ((I2S_OFF_MAP * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP))
-#endif
+
 #define BUFFOFF ((NBIS2SERIALPINS * 8) - 1)
+#endif
 #define AAA (0x00AA00AAL)
 #define CCC (0x0000CCCCL)
 #define FFF (0xF0F0F0F0L)
@@ -432,9 +437,17 @@ uint16_t I2S_OFF4_MAP;
 #ifndef __NB_DMA_BUFFER
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
+#ifndef NUM_LEDS_PER_STRIP
+#define __NB_DMA_BUFFER 20
+#else
 #define __NB_DMA_BUFFER 10
+#endif
+#else
+#ifndef NUM_LEDS_PER_STRIP
+#define __NB_DMA_BUFFER 16
 #else
 #define __NB_DMA_BUFFER 2
+#endif
 #endif
 
 #endif
@@ -587,7 +600,7 @@ typedef struct
 static const char *TAG = "I2SClocklessVirtualLedDriver";
 #endif
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-// static bool IRAM_ATTR  _I2SClocklessVirtualLedDriverinterruptHandler(gdma_channel_handle_t dma_chan, gdma_event_data_t *event_data, void *user_data);
+static bool IRAM_ATTR  _I2SClocklessVirtualLedDriverinterruptHandler(gdma_channel_handle_t dma_chan, gdma_event_data_t *event_data, void *user_data);
 #else
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg);
 #endif
@@ -695,7 +708,7 @@ public:
     float scalingy[INTERUPT_NUM_LINE_MAX];
 #endif
 #if CORE_DEBUG_LEVEL >= 4
-    uint32_t _times[NUM_LEDS_PER_STRIP];
+    uint32_t _times[256];
 #endif
     frameBuffer *framebuff;
     bool useFrame = false;
@@ -935,8 +948,9 @@ public:
     */
         // Enable DMA transfer callback
         gdma_tx_event_callbacks_t tx_cbs = {
-            .on_trans_eof = _I2SClocklessVirtualLedDriverinterruptHandler};
-        _gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, this);
+            .on_trans_eof = _I2SClocklessVirtualLedDriverinterruptHandler
+          };
+        gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, this);
         // esp_intr_disable((*dma_chan).intr);
         LCD_CAM.lcd_user.lcd_start = 0;
 #else
@@ -1945,31 +1959,38 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
 
 #ifdef USE_FASTLED
 
-#ifdef NUM_LEDS_PER_STRIP
+#ifndef NUM_LEDS_PER_STRIP
     void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin, int num_led_per_strip, int nbserialpins)
     {
         NUM_LEDS_PER_STRIP = num_led_per_strip;
         NBIS2SERIALPINS = nbserialpins;
+         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin, num_led_per_strip,  nbserialpins);
+    }
 #else
 
     void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
-#endif
+
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+    #endif
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-#ifdef NUM_LEDS_PER_STRIP
+#ifndef NUM_LEDS_PER_STRIP
     void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin, int num_led_per_strip, int nbserialpins, clock_speed clock)
     {
         NUM_LEDS_PER_STRIP = num_led_per_strip;
         NBIS2SERIALPINS = nbserialpins;
+        _clockspeed = clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin,num_led_per_strip,  nbserialpins);
+    }
 #else
     void initled(CRGB *leds, int *Pinsq, int clock_pin, int latch_pin, clock_speed clock)
     {
-#endif
+
         _clockspeed = clock;
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+    #endif
 #endif
 #endif
 
@@ -1978,13 +1999,16 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
     {
         NUM_LEDS_PER_STRIP = num_led_per_strip;
         NBIS2SERIALPINS = nbserialpins;
+         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin, num_led_per_strip,  nbserialpins);
+    }
 #else
     void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin)
     {
-#endif
+
 
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+    #endif
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 #ifndef NUM_LEDS_PER_STRIP
@@ -1992,19 +2016,34 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
     {
         NUM_LEDS_PER_STRIP = num_led_per_strip;
         NBIS2SERIALPINS = nbserialpins;
+        _clockspeed = clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin, num_led_per_strip,  nbserialpins);
+    }
 #else
     void initled(Pixel *leds, int *Pinsq, int clock_pin, int latch_pin, clock_speed clock)
     {
-#endif
+
 
         _clockspeed = clock;
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+    #endif
+   #ifndef NUM_LEDS_PER_STRIP
+       void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin, int num_led_per_strip, int nbserialpins,clock_speed clock)
+    {
+        NUM_LEDS_PER_STRIP = num_led_per_strip;
+        NBIS2SERIALPINS = nbserialpins;
+        _clockspeed = clock;
+        initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin, num_led_per_strip,  nbserialpins);
+    }
+   #else 
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin, clock_speed clock)
     {
+       
         _clockspeed = clock;
         initled((uint8_t *)leds, Pinsq, clock_pin, latch_pin);
     }
+     #endif
 #endif
 #ifndef NUM_LEDS_PER_STRIP
     void initled(uint8_t *leds, int *Pinsq, int clock_pin, int latch_pin, int num_led_per_strip, int nbserialpins)
@@ -2039,6 +2078,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         I2S_OFF2_MAP = ((I2S_OFF_MAP * NBIS2SERIALPINS - NUM_LEDS_PER_STRIP));
         I2S_OFF3_MAP = ((I2S_OFF_MAP * NBIS2SERIALPINS + NUM_LEDS_PER_STRIP));
         I2S_OFF4_MAP = ((I2S_OFF_MAP * NBIS2SERIALPINS - 3 * NUM_LEDS_PER_STRIP));
+        BUFFOFF=((NBIS2SERIALPINS * 8) - 1);
 #endif
         if (driverInit)
         {
@@ -2208,6 +2248,15 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         ESP_LOGI(TAG, "driver initiated");
     }
 
+#ifndef NUM_LEDS_PER_STRIP
+    void initled(frameBuffer *framb, int *Pinsq, int clock_pin, int latch_pin,int num_leds_per_strip,int nbserial)
+    {
+        framebuff = framb;
+        useFrame = true;
+        ESP_LOGD(TAG, "Init leds with framebuffer");
+        initled(framb->frames[0], Pinsq, clock_pin, latch_pin,num_leds_per_strip,nbserial);
+    }
+#else
     void initled(frameBuffer *framb, int *Pinsq, int clock_pin, int latch_pin)
     {
         framebuff = framb;
@@ -2215,6 +2264,7 @@ Driver data (overall frames):\n     - nb of frames displayed:%d\n     - nb of fr
         ESP_LOGD(TAG, "Init leds with framebuffer");
         initled(framb->frames[0], Pinsq, clock_pin, latch_pin);
     }
+    #endif
     // private:
     volatile int dmaBufferActive = 0;
     volatile bool wait;
@@ -2475,6 +2525,7 @@ static void IRAM_ATTR i2sStop(I2SClocklessVirtualLedDriver *cont)
     // printf("hehe\n");
 }
 #ifdef CONFIG_IDF_TARGET_ESP32S3
+#ifdef TESTISR
 void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *user_data)
 {
     // This DMA callback seems to trigger a moment before the last data has
@@ -2580,6 +2631,71 @@ void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *user_data)
     // }
 }
 #else
+static IRAM_ATTR bool _I2SClocklessVirtualLedDriverinterruptHandler(gdma_channel_handle_t dma_chan,
+                                   gdma_event_data_t *event_data, void *user_data)
+{
+    // This DMA callback seems to trigger a moment before the last data has
+    // issued (buffering between DMA & LCD peripheral?), so pause a moment
+    // before stopping LCD data out. The ideal delay may depend on the LCD
+    // clock rate...this one was determined empirically by monitoring on a
+    // logic analyzer. YMMV.
+    //vTaskDelay(100);
+    // The LCD peripheral stops transmitting at the end of the DMA xfer, but
+    // clear the lcd_start flag anyway -- we poll it in loop() to decide when
+    // the transfer has finished, and the same flag is set later to trigger
+    // the next transfer.
+ I2SClocklessVirtualLedDriver *cont = (I2SClocklessVirtualLedDriver *)user_data;
+
+    if (!cont->__enableDriver)
+    {
+        // cont->i2sStop(cont);
+        i2sStop(cont);
+        return true;
+    }
+
+        cont->framesync = !cont->framesync;
+
+        // cont->ledToDisplay_in[cont->ledToDisplay_out]=cont->ledToDisplay+1;
+        // cont->ledToDisplay_inbuffer[cont->ledToDisplay_out]=cont->dmaBufferActive;
+
+        if (cont->transpose)
+        {
+            cont->ledToDisplay = cont->ledToDisplay + 1;
+            if (cont->ledToDisplay < cont->num_led_per_strip)
+            {
+
+                loadAndTranspose(cont);
+
+                if (cont->ledToDisplay_out == (cont->num_led_per_strip - (__NB_DMA_BUFFER))) // here it's not -1 because it takes time top have the change into account and it reread the buufer
+                {
+                    cont->DMABuffersTampon[(cont->dmaBufferActive) % __NB_DMA_BUFFER]->next = (cont->DMABuffersTampon[__NB_DMA_BUFFER + 1]);
+                    // cont->ledToDisplay_inbufferfor[cont->ledToDisplay_out]=cont->dmaBufferActive;
+                }
+
+                cont->dmaBufferActive = (cont->dmaBufferActive + 1) % __NB_DMA_BUFFER;
+            }
+           cont->ledToDisplay_out = cont->ledToDisplay_out + 1;
+                if( cont->ledToDisplay>=NUM_LEDS_PER_STRIP+__NB_DMA_BUFFER-1)
+     {
+ 
+
+                     i2sStop(cont);
+     }
+        }
+        else
+        {
+            if (cont->framesync)
+            {
+                portBASE_TYPE HPTaskAwoken = 0;
+                xSemaphoreGiveFromISR(cont->I2SClocklessVirtualLedDriver_semSync, &HPTaskAwoken);
+                if (HPTaskAwoken == pdTRUE)
+                    portYIELD_FROM_ISR();
+            }
+        }
+return true;
+}
+#endif
+#else
 static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 {
 
@@ -2643,6 +2759,1200 @@ static void IRAM_ATTR _I2SClocklessVirtualLedDriverinterruptHandler(void *arg)
 #endif
 
 // static inline __attribute__((always_inline)) void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
+#ifndef NUM_LEDS_PER_STRIP
+
+void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
+{
+
+    uint32_t x, y, t;
+//#if NBIS2SERIALPINS >= 8
+   // uint32_t x1, y1;
+//#endif
+//#if NBIS2SERIALPINS >= 4
+    uint32_t ff;
+//#endif
+    uint32_t aa, cc;
+    uint32_t ff2;
+    aa = AAA;
+    cc = CCC;
+//#if NBIS2SERIALPINS >= 4
+    ff = FFF;
+//#endif
+    ff2 = FFF2;
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+    /*
+#else
+    x = ((y >> 4) & ff2);
+    y = (y & ff2);
+
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+/*
+#if NBIS2SERIALPINS >= 8
+   y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+   x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+    B += 2;
+    A += 16;
+
+    //******
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+    B += 2;
+    A += 16;
+
+    //*************
+
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endi*/
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+
+    B += 2;
+    A += 16;
+
+    //******
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+    B += 2;
+    A += 16;
+
+    y = *(unsigned int *)(A);
+//#if NBIS2SERIALPINS >= 4
+    x = *(unsigned int *)(A + 4);
+/*
+#if NBIS2SERIALPINS >= 8
+    y1 = *(unsigned int *)(A + 8);
+#if NBIS2SERIALPINS >= 12
+    x1 = *(unsigned int *)(A + 12);
+#else
+    x1 = 0;
+#endif
+
+#endif
+*/
+
+    // pre-transform x
+//#if NBIS2SERIALPINS >= 4
+    t = (x ^ (x >> 7)) & aa;
+    x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & cc;
+    x = x ^ t ^ (t << 14);
+//#endif
+/*
+#if NBIS2SERIALPINS >= 12
+    t = (x1 ^ (x1 >> 7)) & aa;
+    x1 = x1 ^ t ^ (t << 7);
+    t = (x1 ^ (x1 >> 14)) & cc;
+    x1 = x1 ^ t ^ (t << 14);
+#endif
+*/
+    // pre-transform y
+    t = (y ^ (y >> 7)) & aa;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & cc;
+    y = y ^ t ^ (t << 14);
+/*
+#if NBIS2SERIALPINS >= 8
+    t = (y1 ^ (y1 >> 7)) & aa;
+    y1 = y1 ^ t ^ (t << 7);
+    t = (y1 ^ (y1 >> 14)) & cc;
+    y1 = y1 ^ t ^ (t << 14);
+#endif
+*/
+
+    // final transform
+//#if NBIS2SERIALPINS >= 4
+    t = (x & ff) | ((y >> 4) & ff2);
+
+    y = ((x << 4) & ff) | (y & ff2);
+
+    x = t;
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if NBIS2SERIALPINS >= 12
+    t = (x1 & ff) | ((y1 >> 4) & ff2);
+    y1 = ((x1 << 4) & ff) | (y1 & ff2);
+    x1 = t;
+#else
+    x1 = ((y1 >> 4) & ff2);
+    y1 = (y1 & ff2);
+#endif
+#endif
+*/
+
+/*
+#if NBIS2SERIALPINS >= 8
+
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+#endif
+
+#else
+*/
+//
+#if __MAX_BRIGTHNESS >= 128
+#if _BRIGHTNES_8 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_8)) = (uint16_t)((x) >> 24);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 64
+#if _BRIGHTNES_7 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_7)) = (uint16_t)((x) >> 16);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 32
+#if _BRIGHTNES_6 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_6)) = (uint16_t)((x) >> 8);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 16
+#if _BRIGHTNES_5 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_5)) = (uint16_t)(x);
+#endif
+#endif
+#if __MAX_BRIGTHNESS >= 8
+#if _BRIGHTNES_4 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_4)) = (uint16_t)((y) >> 24);
+#endif
+#endif
+#if _BRIGHTNES_3 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_3)) = (uint16_t)((y) >> 16);
+#endif
+#if _BRIGHTNES_2 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_2)) = (uint16_t)((y) >> 8);
+#endif
+#if _BRIGHTNES_1 < (8 * 48)
+    *((uint16_t *)(B + _BRIGHTNES_1)) = (uint16_t)(y);
+#endif
+
+//#endif
+    //  B+=370;
+    // A+=16;
+    // }
+}
+
+#else
+
 void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
 {
 
@@ -3830,6 +5140,7 @@ void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint8_t *B)
     // }
 }
 
+#endif
 #if (I2S_MAPPING_MODE & I2S_MAPPING_MODE_OPTION_DIRECT_CALCULATION) == 0
 // static inline __attribute__((always_inline)) void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
 void IRAM_ATTR loadAndTranspose(I2SClocklessVirtualLedDriver *driver)
