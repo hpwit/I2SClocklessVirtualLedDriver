@@ -4,7 +4,8 @@
  */
 
 #pragma once
-
+#ifndef __VIRTUAL_DRIVER
+#define __VIRTUAL_DRIVER
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
 #define GDMA_OUT_INT_CLR_REG(i) (DR_REG_GDMA_BASE + 0x74 + (192 * i))
@@ -5430,3 +5431,4 @@ static void showPixelsTask(void *pvParameters)
     }
 #endif
 }
+#endif
